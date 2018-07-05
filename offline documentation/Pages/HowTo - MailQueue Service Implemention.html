@@ -1,0 +1,234 @@
+﻿<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+	<title>LCG - HowTo - MailQueue Service Implemention</title>
+	<link rel="stylesheet" type="text/css" href="../Styles/Highlight.css">
+	<link rel="stylesheet" type="text/css" href="../Styles/Styles.css">
+</head>
+<body>
+	<h1>HowTo - MailQueue Service Implemention</h1>
+	<section>
+		<p class="action">First create the <span class="text-bold">MailQueue</span> table (it is used to store the mails to send and sent)</p>
+		<img src="../ScreenShots/ImplementMailQueueService-01.png" title="Illustration" alt="Illustration" />
+		<p class="action">Compile the solution and run the LayerCake Generator Process to update the code with the new MailQueue table</p>
+		<p class="action">Edit the <span class="text-bold">MailQueueBusiness</span> class</p>
+		<pre class="hl"><span class="hl com">// Business | MailQueueBusiness.custom.cs</span>
+
+﻿<span class="hl kwa">namespace</span> Com<span class="hl opt">.</span>Example<span class="hl opt">.</span>Labs<span class="hl opt">.</span>Business
+<span class="hl opt">{</span>
+    <span class="hl kwa">using</span> System<span class="hl opt">;</span>
+    <span class="hl kwa">using</span> System<span class="hl opt">.</span>ServiceModel<span class="hl opt">;</span>
+    <span class="hl kwa">using</span> System<span class="hl opt">.</span>Threading<span class="hl opt">;</span>
+
+    <span class="hl kwa">using</span> Com<span class="hl opt">.</span>Example<span class="hl opt">.</span>Labs<span class="hl opt">.</span>Core<span class="hl opt">;</span>
+    <span class="hl kwa">using</span> Com<span class="hl opt">.</span>Example<span class="hl opt">.</span>Labs<span class="hl opt">.</span>Crud<span class="hl opt">;</span>
+    <span class="hl kwa">using</span> Com<span class="hl opt">.</span>Example<span class="hl opt">.</span>Labs<span class="hl opt">.</span>Models<span class="hl opt">;</span>
+
+    <span class="hl opt">[</span><span class="hl kwd">BusinessClass</span><span class="hl opt">]</span>
+    <span class="hl kwa">public class</span> MailQueueBusiness <span class="hl opt">:</span> BusinessBase
+    <span class="hl opt">{</span>
+        <span class="hl ppc">#region [ Business Methods ]</span>
+
+        <span class="hl slc">/// &lt;summary&gt;</span>
+        <span class="hl slc">/// Used to post a mail (MailQueue) to send on server-side.</span>
+        <span class="hl slc">/// &lt;/summary&gt;</span>
+        <span class="hl slc">/// </span>
+        <span class="hl slc">/// &lt;param name=&quot;userContext&quot;&gt;</span>
+        <span class="hl slc">/// User context.</span>
+        <span class="hl slc">/// &lt;/param&gt;</span>
+        <span class="hl slc">/// </span>
+        <span class="hl slc">/// &lt;param name=&quot;mailQueue&quot;&gt;</span>
+        <span class="hl slc">/// MailQueue instance.</span>
+        <span class="hl slc">/// &lt;/param&gt;</span>
+        <span class="hl opt">[</span><span class="hl kwd">BusinessMethod</span><span class="hl opt">]</span>
+        <span class="hl kwa">public</span> <span class="hl kwb">void</span> <span class="hl kwd">PostMailQueue</span><span class="hl opt">(</span>IUserContext userContext<span class="hl opt">,</span> <span class="hl kwa">ref</span> MailQueue mailQueue<span class="hl opt">)</span>
+        <span class="hl opt">{</span>
+            <span class="hl kwa">using</span> <span class="hl opt">(</span><span class="hl kwa">var</span> et <span class="hl opt">=</span> <span class="hl kwa">new</span> <span class="hl kwd">ExecutionTracerService</span><span class="hl opt">())</span>
+            <span class="hl kwa">using</span> <span class="hl opt">(</span><span class="hl kwa">var</span> db <span class="hl opt">=</span> <span class="hl kwa">new</span> <span class="hl kwd">MailQueueCrud</span><span class="hl opt">(</span>userContext<span class="hl opt">))</span>
+            <span class="hl opt">{</span>
+                db<span class="hl opt">.</span><span class="hl kwd">Save</span><span class="hl opt">(</span><span class="hl kwa">ref</span> mailQueue<span class="hl opt">);</span> <span class="hl slc">// save the mailQueue in the database</span>
+            <span class="hl opt">}</span>
+        <span class="hl opt">}</span>
+
+        <span class="hl ppc">#endregion</span>
+
+        <span class="hl ppc">#region [ Members ]</span>
+
+        <span class="hl kwa">private static</span> System<span class="hl opt">.</span>Timers<span class="hl opt">.</span>Timer _timer <span class="hl opt">=</span> <span class="hl kwa">null</span><span class="hl opt">;</span>
+
+        <span class="hl kwa">private static</span> CancellationTokenSource _token <span class="hl opt">=</span> <span class="hl kwa">new</span> <span class="hl kwd">CancellationTokenSource</span><span class="hl opt">();</span>
+
+        <span class="hl ppc">#endregion</span>
+
+        <span class="hl ppc">#region [ Public Methods ]</span>
+
+        <span class="hl slc">/// &lt;summary&gt;</span>
+        <span class="hl slc">/// Start the MailQueue service.</span>
+        <span class="hl slc">/// &lt;/summary&gt;</span>
+        <span class="hl slc">/// </span>
+        <span class="hl slc">/// &lt;param name=&quot;timerInterval&quot;&gt;</span>
+        <span class="hl slc">/// The interval of the timer.</span>
+        <span class="hl slc">/// &lt;/param&gt;</span>
+        <span class="hl kwa">public static</span> <span class="hl kwb">void</span> <span class="hl kwd">Start</span><span class="hl opt">(</span>TimeSpan timerInterval<span class="hl opt">)</span>
+        <span class="hl opt">{</span>
+            <span class="hl kwa">if</span> <span class="hl opt">(</span>_timer <span class="hl opt">==</span> <span class="hl kwa">null</span><span class="hl opt">)</span>
+            <span class="hl opt">{</span>
+                _timer <span class="hl opt">=</span> <span class="hl kwa">new</span> System<span class="hl opt">.</span>Timers<span class="hl opt">.</span><span class="hl kwd">Timer</span><span class="hl opt">(</span>timerInterval<span class="hl opt">.</span>TotalMilliseconds<span class="hl opt">);</span>
+                _timer<span class="hl opt">.</span>Elapsed <span class="hl opt">+=</span> OnTimerElapsed<span class="hl opt">;</span>
+            <span class="hl opt">}</span>
+
+            _token <span class="hl opt">=</span> <span class="hl kwa">new</span> <span class="hl kwd">CancellationTokenSource</span><span class="hl opt">();</span>
+
+            _timer<span class="hl opt">.</span>Enabled <span class="hl opt">=</span> <span class="hl kwa">true</span><span class="hl opt">;</span> <span class="hl slc">// starts the timer (the OnTimerElapsed will be invoked each timerInterval ms)</span>
+        <span class="hl opt">}</span>
+
+        <span class="hl slc">/// &lt;summary&gt;</span>
+        <span class="hl slc">/// Stop the MailQueue service.</span>
+        <span class="hl slc">/// &lt;/summary&gt;</span>
+        <span class="hl kwa">public static</span> <span class="hl kwb">void</span> <span class="hl kwd">Stop</span><span class="hl opt">()</span>
+        <span class="hl opt">{</span>
+            _token<span class="hl opt">.</span><span class="hl kwd">Cancel</span><span class="hl opt">();</span>
+
+            <span class="hl kwa">if</span> <span class="hl opt">(</span>_timer <span class="hl opt">!=</span> <span class="hl kwa">null</span><span class="hl opt">)</span>
+            <span class="hl opt">{</span>
+                _timer<span class="hl opt">.</span>Enabled <span class="hl opt">=</span> <span class="hl kwa">false</span><span class="hl opt">;</span>
+            <span class="hl opt">}</span>
+        <span class="hl opt">}</span>
+
+        <span class="hl ppc">#endregion</span>
+
+        <span class="hl ppc">#region [ Events ]</span>
+
+        <span class="hl kwa">private static</span> <span class="hl kwb">void</span> <span class="hl kwd">OnTimerElapsed</span><span class="hl opt">(</span><span class="hl kwb">object</span> sender<span class="hl opt">,</span> EventArgs e<span class="hl opt">)</span>
+        <span class="hl opt">{</span>
+            <span class="hl kwa">if</span> <span class="hl opt">(</span>_token<span class="hl opt">.</span>IsCancellationRequested<span class="hl opt">)</span>
+                <span class="hl kwa">return</span><span class="hl opt">;</span>
+
+            <span class="hl kwa">if</span> <span class="hl opt">(</span>_timer<span class="hl opt">.</span>Enabled<span class="hl opt">)</span>
+            <span class="hl opt">{</span>
+                <span class="hl kwd">lock</span> <span class="hl opt">(</span>_timer<span class="hl opt">)</span>
+                <span class="hl opt">{</span>
+                    <span class="hl kwa">if</span> <span class="hl opt">(</span>_timer<span class="hl opt">.</span>Enabled<span class="hl opt">)</span>
+                    <span class="hl opt">{</span>
+                        _timer<span class="hl opt">.</span>Enabled <span class="hl opt">=</span> <span class="hl kwa">false</span><span class="hl opt">;</span> <span class="hl slc">// disable the timer</span>
+
+                        <span class="hl slc">// Get the default SmtpService instance</span>
+                        ISmtpService smtpService <span class="hl opt">=</span> ServiceLocator<span class="hl opt">.</span>Current<span class="hl opt">.</span>Resolve<span class="hl opt">&lt;</span>ISmtpService<span class="hl opt">&gt;();</span>
+
+                        <span class="hl kwa">using</span> <span class="hl opt">(</span>MailQueueCrud db <span class="hl opt">=</span> <span class="hl kwa">new</span> <span class="hl kwd">MailQueueCrud</span><span class="hl opt">(</span>ClientContext<span class="hl opt">.</span>Server<span class="hl opt">))</span>
+                        <span class="hl opt">{</span>
+                            <span class="hl slc">// Retrieve the unsent mails (with some options)...</span>
+
+                            SearchOptions options <span class="hl opt">=</span> <span class="hl kwa">new</span> <span class="hl kwd">SearchOptions</span><span class="hl opt">();</span>
+
+                            options<span class="hl opt">.</span>Filters<span class="hl opt">.</span><span class="hl kwd">Add</span><span class="hl opt">(</span>MailQueue<span class="hl opt">.</span>ColumnNames<span class="hl opt">.</span>IsSent<span class="hl opt">,</span> FilterOperator<span class="hl opt">.</span>Equals<span class="hl opt">,</span> <span class="hl kwa">false</span><span class="hl opt">);</span>
+                            options<span class="hl opt">.</span>Filters<span class="hl opt">.</span><span class="hl kwd">Add</span><span class="hl opt">(</span>MailQueue<span class="hl opt">.</span>ColumnNames<span class="hl opt">.</span>TryCount<span class="hl opt">,</span> FilterOperator<span class="hl opt">.</span>LessOrEquals<span class="hl opt">,</span> <span class="hl num">20</span><span class="hl opt">);</span>
+
+                            options<span class="hl opt">.</span>Orders<span class="hl opt">.</span><span class="hl kwd">Add</span><span class="hl opt">(</span>MailQueue<span class="hl opt">.</span>ColumnNames<span class="hl opt">.</span>Id<span class="hl opt">,</span> OrderOperator<span class="hl opt">.</span>Asc<span class="hl opt">);</span> <span class="hl slc">// older ones</span>
+
+                            options<span class="hl opt">.</span>MaxRecords <span class="hl opt">=</span> <span class="hl num">24</span><span class="hl opt">;</span> <span class="hl slc">// 24 items max</span>
+
+                            <span class="hl kwa">foreach</span> <span class="hl opt">(</span><span class="hl kwa">var</span> item <span class="hl kwa">in</span> db<span class="hl opt">.</span><span class="hl kwd">Search</span><span class="hl opt">(</span><span class="hl kwa">ref</span> options<span class="hl opt">))</span>
+                            <span class="hl opt">{</span>
+                                <span class="hl kwa">if</span> <span class="hl opt">(</span>_token<span class="hl opt">.</span>IsCancellationRequested<span class="hl opt">)</span>
+                                    <span class="hl kwa">break</span><span class="hl opt">;</span>
+
+                                MailQueue mailQueue <span class="hl opt">=</span> item<span class="hl opt">;</span>
+
+                                <span class="hl kwa">try</span>
+                                <span class="hl opt">{</span>
+                                    <span class="hl slc">// Sent the email...</span>
+
+                                    smtpService<span class="hl opt">.</span><span class="hl kwd">Send</span><span class="hl opt">(</span>mailQueue<span class="hl opt">.</span>From<span class="hl opt">,</span> mailQueue<span class="hl opt">.</span>ToList<span class="hl opt">,</span> mailQueue<span class="hl opt">.</span>Subject<span class="hl opt">,</span> mailQueue<span class="hl opt">.</span>Body<span class="hl opt">,</span> <span class="hl kwa">new</span> SmtpServiceOptions
+                                    <span class="hl opt">{</span>
+                                        Cc <span class="hl opt">=</span> mailQueue<span class="hl opt">.</span>CcList<span class="hl opt">,</span>
+                                        Bcc <span class="hl opt">=</span> mailQueue<span class="hl opt">.</span>BccList<span class="hl opt">,</span>
+                                        IsHtmlBody <span class="hl opt">=</span> mailQueue<span class="hl opt">.</span>IsHtmlBody
+                                    <span class="hl opt">});</span>
+
+                                    mailQueue<span class="hl opt">.</span>IsSent <span class="hl opt">=</span> <span class="hl kwa">true</span><span class="hl opt">;</span>
+                                    mailQueue<span class="hl opt">.</span>LastError <span class="hl opt">=</span> <span class="hl kwa">null</span><span class="hl opt">;</span>
+                                <span class="hl opt">}</span>
+                                <span class="hl kwa">catch</span> <span class="hl opt">(</span>Exception x<span class="hl opt">)</span>
+                                <span class="hl opt">{</span>
+                                    mailQueue<span class="hl opt">.</span>LastError <span class="hl opt">=</span> x<span class="hl opt">.</span><span class="hl kwd">ToString</span><span class="hl opt">();</span>    <span class="hl slc">// Store the exception</span>
+                                    mailQueue<span class="hl opt">.</span>TryCount<span class="hl opt">++;</span>
+                                <span class="hl opt">}</span>
+                                <span class="hl kwa">finally</span>
+                                <span class="hl opt">{</span>
+                                    <span class="hl slc">// Update data...</span>
+
+                                    mailQueue<span class="hl opt">.</span>LastTryDateTime <span class="hl opt">=</span> DateTime<span class="hl opt">.</span>Now<span class="hl opt">;</span>
+
+                                    <span class="hl kwa">try</span>
+                                    <span class="hl opt">{</span>
+                                        db<span class="hl opt">.</span><span class="hl kwd">Save</span><span class="hl opt">(</span><span class="hl kwa">ref</span> mailQueue<span class="hl opt">);</span>
+                                    <span class="hl opt">}</span>
+                                    <span class="hl kwa">catch</span> <span class="hl opt">(</span>Exception ex<span class="hl opt">)</span>
+                                    <span class="hl opt">{</span>
+                                        LoggerService<span class="hl opt">.</span><span class="hl kwd">TraceException</span><span class="hl opt">(</span><span class="hl kwd">typeof</span><span class="hl opt">(</span>MailQueueBusiness<span class="hl opt">),</span> ex<span class="hl opt">);</span>
+                                    <span class="hl opt">}</span>
+                                <span class="hl opt">}</span>
+                            <span class="hl opt">}</span>
+                        <span class="hl opt">}</span>
+
+                        _timer<span class="hl opt">.</span>Enabled <span class="hl opt">=</span> <span class="hl kwa">true</span><span class="hl opt">;</span> <span class="hl slc">// enable again the timer</span>
+                    <span class="hl opt">}</span>
+                <span class="hl opt">}</span>
+            <span class="hl opt">}</span>
+        <span class="hl opt">}</span>
+
+        <span class="hl ppc">#endregion</span>
+    <span class="hl opt">}</span>
+<span class="hl opt">}</span></pre>
+		<p class="action">Compile again the solution and run the LayerCake Generator Process to update the code with the new MailQueue service (and WCF)</p>
+		<p>Tests</p>
+		<pre class="hl"><span class="hl com">// Tests</span>
+
+﻿<span class="hl kwa">var</span> mailQueue_1 <span class="hl opt">=</span> <span class="hl kwa">new</span> MailQueue
+<span class="hl opt">{</span>
+    Subject <span class="hl opt">=</span> <span class="hl str">&quot;MailQueue Test 1&quot;</span><span class="hl opt">,</span>
+    Body <span class="hl opt">=</span> <span class="hl str">&quot;Welcome...&quot;</span><span class="hl opt">,</span>
+    From <span class="hl opt">=</span> &lt;email&gt;<span class="hl opt">,</span>
+    ToList <span class="hl opt">=</span> &lt;email&gt;<span class="hl opt">,</span>
+    IsHtmlBody <span class="hl opt">=</span> <span class="hl kwa">false</span>
+<span class="hl opt">};</span>
+
+<span class="hl kwa">var</span> mailQueue_2 <span class="hl opt">=</span> <span class="hl kwa">new</span> MailQueue
+<span class="hl opt">{</span>
+    Subject <span class="hl opt">=</span> <span class="hl str">&quot;MailQueue Test 2&quot;</span><span class="hl opt">,</span>
+    Body <span class="hl opt">=</span> <span class="hl str">&quot;...and goodbye!&quot;</span><span class="hl opt">,</span>
+    From <span class="hl opt">=</span> &lt;email&gt;<span class="hl opt">,</span>
+    ToList <span class="hl opt">=</span> &lt;email&gt;<span class="hl opt">,</span>
+    IsHtmlBody <span class="hl opt">=</span> <span class="hl kwa">false</span>
+<span class="hl opt">};</span>
+
+<span class="hl slc">// Starts the MailQueue service</span>
+MailQueueBusiness<span class="hl opt">.</span><span class="hl kwd">Start</span><span class="hl opt">(</span>TimeSpan<span class="hl opt">.</span><span class="hl kwd">FromSeconds</span><span class="hl opt">(</span><span class="hl num">1</span><span class="hl opt">));</span>
+
+<span class="hl kwa">var</span> business <span class="hl opt">=</span> <span class="hl kwa">new</span> <span class="hl kwd">MailQueueBusiness</span><span class="hl opt">();</span>
+
+business<span class="hl opt">.</span><span class="hl kwd">PostMailQueue</span><span class="hl opt">(</span>ClientContext<span class="hl opt">.</span>Anonymous<span class="hl opt">,</span> <span class="hl kwa">ref</span> mailQueue_1<span class="hl opt">);</span>
+business<span class="hl opt">.</span><span class="hl kwd">PostMailQueue</span><span class="hl opt">(</span>ClientContext<span class="hl opt">.</span>Anonymous<span class="hl opt">,</span> <span class="hl kwa">ref</span> mailQueue_2<span class="hl opt">);</span>
+
+<span class="hl slc">// Or on client-side (-&gt; the client asks the server to send emails)</span>
+
+<span class="hl slc">//using (var service = new ServiceProxy&lt;IMailQueueService&gt;())</span>
+<span class="hl slc">//{</span>
+<span class="hl slc">//    service.Proxy.PostMailQueue(ClientContext.Anonymous, ref mailQueue_1);</span>
+<span class="hl slc">//    service.Proxy.PostMailQueue(ClientContext.Anonymous, ref mailQueue_2);</span>
+<span class="hl slc">//}</span>
+
+Thread<span class="hl opt">.</span><span class="hl kwd">Sleep</span><span class="hl opt">(</span>TimeSpan<span class="hl opt">.</span><span class="hl kwd">FromSeconds</span><span class="hl opt">(</span><span class="hl num">5</span><span class="hl opt">));</span>
+
+<span class="hl slc">// Stops the MailQueue service</span>
+MailQueueBusiness<span class="hl opt">.</span><span class="hl kwd">Stop</span><span class="hl opt">();</span>
+</pre>
+		<p>Database records</p>
+		<pre class="hl">MailQueue_Id | MailQueue_Subject | MailQueue_Body | MailQueue_From | MailQueue_ToList | MailQueue_CcList | MailQueue_BccList | MailQueue_IsHtmlBody | <span class="text-bold text-red">MailQueue_IsSent</span> | MailQueue_TryCount | <span class="text-bold text-red">MailQueue_LastTryDateTime</span> | MailQueue_LastError
+1              MailQueue Test 1    Welcome...       &lt;email&gt;          &lt;email&gt;            NULL               NULL                0                      <span class="text-red">1</span>                  0                    <span class="text-red">2014-08-27 19:34:08.133</span>     NULL
+2              MailQueue Test 2    ...and goodbye!  &lt;email&gt;          &lt;email&gt;            NULL               NULL                0                      <span class="text-red">1</span>                  0                    <span class="text-red">2014-08-27 19:34:08.383</span>     NULL</pre>
+		<p>Note: if the <span class="text-bold">From</span> field is not filled then the default value from the configuration file will be used (smtpServiceConfiguration -&gt; 'from' attribute value)</p>
+	</section>
+</body>
+</html>

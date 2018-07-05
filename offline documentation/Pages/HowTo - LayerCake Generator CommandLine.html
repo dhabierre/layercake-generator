@@ -1,0 +1,33 @@
+﻿<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+	<title>LCG - HowTo - LayerCake Generator CommandLine.</title>
+	<link rel="stylesheet" type="text/css" href="../Styles/Highlight.css">
+	<link rel="stylesheet" type="text/css" href="../Styles/Styles.css">
+</head>
+<body>
+	<h1>HowTo - LayerCake Generator CommandLine.</h1>
+	<section>
+		<p>It is possible to execute LayerCake Generator from command-line (located to the install folder).</p>
+		<ul>
+			<li>
+				<p class="text-bold">Full process</p>
+				<pre class="hl">LayerCake<span class="hl opt">.</span>Generator<span class="hl opt">.</span>Cmd<span class="hl opt">.</span>exe [Debug|Release] <span class="hl opt">&lt;</span>ConfigFilePath<span class="hl opt">&gt;</span></pre>
+				<pre class="hl">LayerCake<span class="hl opt">.</span>Generator<span class="hl opt">.</span>Cmd<span class="hl opt">.</span>exe Debug <span class="hl str">&quot;C:\...\Com.Company.Project\Com.Company.Project.config&quot;</span></pre>
+			</li>
+			<li>
+				<p class="text-bold">Process with or without the SQL Procedure Integration</p>
+				<pre class="hl">LayerCake<span class="hl opt">.</span>Generator<span class="hl opt">.</span>Cmd<span class="hl opt">.</span>exe [Debug|Release] <span class="hl opt">&lt;</span>ConfigFilePath<span class="hl opt">&gt; &lt;</span>WithSqlProcedureIntegration<span class="hl opt">&gt;</span></pre>
+				<pre class="hl">LayerCake<span class="hl opt">.</span>Generator<span class="hl opt">.</span>Cmd<span class="hl opt">.</span>exe Debug <span class="hl str">&quot;C:\...\Com.Company.MyProject\Com.Company.Project.config&quot;</span> <span class="hl kwa">true</span></pre>
+				<pre class="hl">LayerCake<span class="hl opt">.</span>Generator<span class="hl opt">.</span>Cmd<span class="hl opt">.</span>exe Debug <span class="hl str">&quot;C:\...\Com.Company.MyProject\Com.Company.Project.config&quot;</span> <span class="hl kwa">false</span></pre>
+			</li>
+			<li>
+				<p class="text-bold">Process with or without the SQL Procedure Integration and a set of tables</p>
+				<pre class="hl">LayerCake<span class="hl opt">.</span>Generator<span class="hl opt">.</span>Cmd<span class="hl opt">.</span>exe [Debug|Release] <span class="hl opt">&lt;</span>ConfigFilePath<span class="hl opt">&gt; &lt;</span>WithSqlProcedureIntegration<span class="hl opt">&gt; &lt;</span>Table1<span class="hl opt">&gt; &lt;</span>Table2<span class="hl opt">&gt; ...</span></pre>
+				<pre class="hl">LayerCake<span class="hl opt">.</span>Generator<span class="hl opt">.</span>Cmd<span class="hl opt">.</span>exe Debug <span class="hl str">&quot;C:\...\Com.Company.Project\Com.Company.Project.config&quot;</span> <span class="hl kwa">true</span> User UserRole Role</pre>
+				<pre class="hl">LayerCake<span class="hl opt">.</span>Generator<span class="hl opt">.</span>Cmd<span class="hl opt">.</span>exe Debug <span class="hl str">&quot;C:\...\Com.Company.Project\Com.Company.Project.config&quot;</span> <span class="hl kwa">false</span> User UserRole Role</pre>
+			</li>
+		</ul>
+	</section>
+</body>
+</html>

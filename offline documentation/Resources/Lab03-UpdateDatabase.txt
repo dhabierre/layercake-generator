@@ -1,0 +1,189 @@
+USE [Labs]
+GO
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+SET ANSI_PADDING ON
+GO
+CREATE TABLE [dbo].[Category](
+	[Category_Id] [bigint] IDENTITY(1,1) NOT NULL,
+	[Category_IdCategoryParent] [bigint] NULL,
+	[Category_CodeRef] [varchar](48) NOT NULL,
+	[Category_Name_EN] [varchar](48) NOT NULL,
+	[Category_Name_FR] [varchar](48) NOT NULL,
+ CONSTRAINT [PK_Category] PRIMARY KEY CLUSTERED 
+(
+	[Category_Id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY],
+ CONSTRAINT [UQ_Category_CodeRef] UNIQUE NONCLUSTERED 
+(
+	[Category_CodeRef] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
+) ON [PRIMARY]
+
+GO
+SET ANSI_PADDING OFF
+GO
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+SET ANSI_PADDING ON
+GO
+CREATE TABLE [dbo].[Client](
+	[Client_Id] [bigint] IDENTITY(1,1) NOT NULL,
+	[Client_IdCountry] [bigint] NOT NULL,
+	[Client_Firstname] [varchar](64) NOT NULL,
+	[Client_Lastname] [varchar](64) NOT NULL,
+	[Client_Email] [varchar](256) NOT NULL,
+	[Client_Ref] [int] NOT NULL,
+ CONSTRAINT [PK_Client] PRIMARY KEY CLUSTERED 
+(
+	[Client_Id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
+) ON [PRIMARY]
+
+GO
+SET ANSI_PADDING OFF
+GO
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+SET ANSI_PADDING ON
+GO
+CREATE TABLE [dbo].[Command](
+	[Command_Id] [bigint] IDENTITY(1,1) NOT NULL,
+	[Command_IdClient] [bigint] NOT NULL,
+	[Command_IdCommandStatus] [bigint] NOT NULL,
+	[Command_Ref] [varchar](16) NOT NULL,
+	[Command_Date] [datetime] NOT NULL,
+	[Command_IsPaid] [bit] NOT NULL,
+ CONSTRAINT [PK_Command] PRIMARY KEY CLUSTERED 
+(
+	[Command_Id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
+) ON [PRIMARY]
+
+GO
+SET ANSI_PADDING OFF
+GO
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[CommandLine](
+	[CommandLine_Id] [bigint] IDENTITY(1,1) NOT NULL,
+	[CommandLine_IdCommand] [bigint] NOT NULL,
+	[CommandLine_IdProduct] [bigint] NOT NULL,
+ CONSTRAINT [PK_CommandLine] PRIMARY KEY CLUSTERED 
+(
+	[CommandLine_Id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
+) ON [PRIMARY]
+
+GO
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+SET ANSI_PADDING ON
+GO
+CREATE TABLE [dbo].[CommandStatus](
+	[CommandStatus_Id] [bigint] IDENTITY(1,1) NOT NULL,
+	[CommandStatus_CodeRef] [varchar](16) NOT NULL,
+	[CommandStatus_Description] [varchar](64) NULL,
+ CONSTRAINT [PK_CommandStatus] PRIMARY KEY CLUSTERED 
+(
+	[CommandStatus_Id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY],
+ CONSTRAINT [UQ_CommandStatus_CodeRef] UNIQUE NONCLUSTERED 
+(
+	[CommandStatus_CodeRef] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
+) ON [PRIMARY]
+
+GO
+SET ANSI_PADDING OFF
+GO
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+SET ANSI_PADDING ON
+GO
+CREATE TABLE [dbo].[Country](
+	[Country_Id] [bigint] IDENTITY(1,1) NOT NULL,
+	[Country_Name_EN] [varchar](64) NOT NULL,
+	[Country_Name_FR] [varchar](64) NOT NULL,
+ CONSTRAINT [PK_Country] PRIMARY KEY CLUSTERED 
+(
+	[Country_Id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
+) ON [PRIMARY]
+
+GO
+SET ANSI_PADDING OFF
+GO
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+SET ANSI_PADDING ON
+GO
+CREATE TABLE [dbo].[Product](
+	[Product_Id] [bigint] IDENTITY(1,1) NOT NULL,
+	[Product_IdCategory] [bigint] NOT NULL,
+	[Product_Ref] [varchar](10) NOT NULL,
+	[Product_Name_EN] [varchar](128) NOT NULL,
+	[Product_Name_FR] [varchar](128) NOT NULL,
+	[Product_Description_EN] [varchar](1024) NULL,
+	[Product_Description_FR] [varchar](1024) NULL,
+	[Product_ImageUrl] [varchar](512) NULL,
+	[Product_Price] [money] NOT NULL,
+	[Product_IsAvailable] [bit] NOT NULL,
+ CONSTRAINT [PK_Product] PRIMARY KEY CLUSTERED 
+(
+	[Product_Id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
+) ON [PRIMARY]
+
+GO
+SET ANSI_PADDING OFF
+GO
+ALTER TABLE [dbo].[Category]  WITH CHECK ADD  CONSTRAINT [FK_Category_CategoryParent] FOREIGN KEY([Category_IdCategoryParent])
+REFERENCES [dbo].[Category] ([Category_Id])
+GO
+ALTER TABLE [dbo].[Category] CHECK CONSTRAINT [FK_Category_CategoryParent]
+GO
+ALTER TABLE [dbo].[Client]  WITH CHECK ADD  CONSTRAINT [FK_Client_Country] FOREIGN KEY([Client_IdCountry])
+REFERENCES [dbo].[Country] ([Country_Id])
+GO
+ALTER TABLE [dbo].[Client] CHECK CONSTRAINT [FK_Client_Country]
+GO
+ALTER TABLE [dbo].[Command]  WITH CHECK ADD  CONSTRAINT [FK_Command_Client] FOREIGN KEY([Command_IdClient])
+REFERENCES [dbo].[Client] ([Client_Id])
+GO
+ALTER TABLE [dbo].[Command] CHECK CONSTRAINT [FK_Command_Client]
+GO
+ALTER TABLE [dbo].[Command]  WITH CHECK ADD  CONSTRAINT [FK_Command_CommandStatus] FOREIGN KEY([Command_IdCommandStatus])
+REFERENCES [dbo].[CommandStatus] ([CommandStatus_Id])
+GO
+ALTER TABLE [dbo].[Command] CHECK CONSTRAINT [FK_Command_CommandStatus]
+GO
+ALTER TABLE [dbo].[CommandLine]  WITH CHECK ADD  CONSTRAINT [FK_CommandLine_Command] FOREIGN KEY([CommandLine_IdCommand])
+REFERENCES [dbo].[Command] ([Command_Id])
+GO
+ALTER TABLE [dbo].[CommandLine] CHECK CONSTRAINT [FK_CommandLine_Command]
+GO
+ALTER TABLE [dbo].[CommandLine]  WITH CHECK ADD  CONSTRAINT [FK_CommandLine_Product] FOREIGN KEY([CommandLine_IdProduct])
+REFERENCES [dbo].[Product] ([Product_Id])
+GO
+ALTER TABLE [dbo].[CommandLine] CHECK CONSTRAINT [FK_CommandLine_Product]
+GO
+ALTER TABLE [dbo].[Product]  WITH CHECK ADD  CONSTRAINT [FK_Product_Category] FOREIGN KEY([Product_IdCategory])
+REFERENCES [dbo].[Category] ([Category_Id])
+GO
+ALTER TABLE [dbo].[Product] CHECK CONSTRAINT [FK_Product_Category]
+GO

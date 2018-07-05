@@ -1,0 +1,66 @@
+﻿<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+	<title>LCG - Tips - IObjectValidityDateRange Interface</title>
+	<link rel="stylesheet" type="text/css" href="../Styles/Highlight.css">
+	<link rel="stylesheet" type="text/css" href="../Styles/Styles.css">
+</head>
+<body>
+	<h1>Tips - IObjectValidityDateRange Interface</h1>
+	<section>
+		<p>The <span class="text-bold">IObjectValidityDateRange</span> interface can be used to validate entities on dates / date ranges.</p>
+		<p>Let's take an example</p>
+		<pre class="hl">﻿<span class="hl kwa">public class</span> Product
+<span class="hl opt">{</span>
+    ...
+
+    <span class="hl kwa">public DateTime</span>? BeginSaleDate <span class="hl opt">{</span> <span class="hl kwa">get</span><span class="hl opt">;</span> <span class="hl kwa">set</span><span class="hl opt">; }</span>
+
+    <span class="hl kwa">public DateTime</span>? EndSaleDate <span class="hl opt">{</span> <span class="hl kwa">get</span><span class="hl opt">;</span> <span class="hl kwa">set</span><span class="hl opt">; }</span>
+<span class="hl opt">}</span></pre>
+		<p class="action">Implements the <span class="text-bold">IObjectValidityDateRange</span> interface</p>
+		<pre class="hl">﻿<span class="hl slc">// Models | Product.custom.cs</span>
+
+﻿<span class="hl kwa">public class</span> Product <span class="hl opt">:</span> <span class="highlight-text">IObjectValidityDateRange</span>
+<span class="hl opt">{</span>
+    <span class="hl kwa">#region</span> [ IObjectValidityDateRange Implementation ]
+
+    <span class="hl kwa">public DateTime</span>? ValidityBeginDate
+    <span class="hl opt">{</span>
+        <span class="hl kwa">get</span> <span class="hl opt">{</span> <span class="hl kwa">return this</span><span class="hl opt">.</span>BeginSaleDate<span class="hl opt">; }</span>
+    <span class="hl opt">}</span>
+
+    <span class="hl kwa">public DateTime</span>? ValidityEndDate
+    <span class="hl opt">{</span>
+        <span class="hl kwa">get</span> <span class="hl opt">{</span> <span class="hl kwa">return this</span><span class="hl opt">.</span>EndSaleDate<span class="hl opt">; }</span>
+    <span class="hl opt">}</span>
+
+    <span class="hl kwa">#endregion</span>
+<span class="hl opt">}</span></pre>
+		<p>Then</p>
+		<pre class="hl">﻿<span class="hl slc">// Tests</span>
+		
+Product p1 <span class="hl opt">=</span> <span class="hl kwa">new</span> Product
+<span class="hl opt">{</span>
+    BeginSaleDate <span class="hl opt">=</span> <span class="hl kwa">new</span> <span class="hl kwd">DateTime</span><span class="hl opt">(</span><span class="hl num">2014</span><span class="hl opt">,</span> <span class="hl num">1</span><span class="hl opt">,</span> <span class="hl num">1</span><span class="hl opt">),</span>
+    EndSaleDate <span class="hl opt">=</span> <span class="hl kwa">new</span> <span class="hl kwd">DateTime</span><span class="hl opt">(</span><span class="hl num">2014</span><span class="hl opt">,</span> <span class="hl num">12</span><span class="hl opt">,</span> <span class="hl num">31</span><span class="hl opt">)</span>
+<span class="hl opt">};</span>
+
+Product p2 <span class="hl opt">=</span> <span class="hl kwa">new</span> Product
+<span class="hl opt">{</span>
+    BeginSaleDate <span class="hl opt">=</span> <span class="hl kwa">new</span> <span class="hl kwd">DateTime</span><span class="hl opt">(</span><span class="hl num">2015</span><span class="hl opt">,</span> <span class="hl num">1</span><span class="hl opt">,</span> <span class="hl num">1</span><span class="hl opt">)</span>
+<span class="hl opt">};</span>
+
+<span class="hl slc">// Date validation</span>
+
+p1<span class="hl opt">.</span><span class="hl kwd">IsValidityDateRangeValid</span><span class="hl opt">(</span><span class="hl kwa">new</span> <span class="hl kwd">DateTime</span><span class="hl opt">(</span><span class="hl num">2015</span><span class="hl opt">,</span> <span class="hl num">7</span><span class="hl opt">,</span> <span class="hl num">1</span><span class="hl opt">));</span> <span class="hl slc">// false</span>
+p2<span class="hl opt">.</span><span class="hl kwd">IsValidityDateRangeValid</span><span class="hl opt">(</span><span class="hl kwa">new</span> <span class="hl kwd">DateTime</span><span class="hl opt">(</span><span class="hl num">2015</span><span class="hl opt">,</span> <span class="hl num">7</span><span class="hl opt">,</span> <span class="hl num">1</span><span class="hl opt">));</span> <span class="hl slc">// true</span>
+
+<span class="hl slc">// Range validation</span>
+
+p1<span class="hl opt">.</span><span class="hl kwd">IsValidityDateRangeValid</span><span class="hl opt">(</span><span class="hl kwa">new</span> <span class="hl kwd">DateTime</span><span class="hl opt">(</span><span class="hl num">2014</span><span class="hl opt">,</span> <span class="hl num">7</span><span class="hl opt">,</span> <span class="hl num">1</span><span class="hl opt">),</span> <span class="hl kwa">new</span> <span class="hl kwd">DateTime</span><span class="hl opt">(</span><span class="hl num">2015</span><span class="hl opt">,</span> <span class="hl num">7</span><span class="hl opt">,</span> <span class="hl num">31</span><span class="hl opt">));</span> <span class="hl slc">// true</span>
+p1<span class="hl opt">.</span><span class="hl kwd">IsValidityDateRangeValid</span><span class="hl opt">(</span><span class="hl kwa">new</span> <span class="hl kwd">DateTime</span><span class="hl opt">(</span><span class="hl num">2015</span><span class="hl opt">,</span> <span class="hl num">7</span><span class="hl opt">,</span> <span class="hl num">1</span><span class="hl opt">),</span> <span class="hl kwa">new</span> <span class="hl kwd">DateTime</span><span class="hl opt">(</span><span class="hl num">2015</span><span class="hl opt">,</span> <span class="hl num">7</span><span class="hl opt">,</span> <span class="hl num">31</span><span class="hl opt">));</span> <span class="hl slc">// false</span>
+p2<span class="hl opt">.</span><span class="hl kwd">IsValidityDateRangeValid</span><span class="hl opt">(</span><span class="hl kwa">new</span> <span class="hl kwd">DateTime</span><span class="hl opt">(</span><span class="hl num">2016</span><span class="hl opt">,</span> <span class="hl num">1</span><span class="hl opt">,</span> <span class="hl num">1</span><span class="hl opt">),</span> <span class="hl kwa">new</span> <span class="hl kwd">DateTime</span><span class="hl opt">(</span><span class="hl num">2016</span><span class="hl opt">,</span> <span class="hl num">9</span><span class="hl opt">,</span> <span class="hl num">31</span><span class="hl opt">));</span> <span class="hl slc">// true</span></pre>
+	</section>
+</body>
+</html>

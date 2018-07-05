@@ -1,0 +1,162 @@
+﻿<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+	<title>LCG - HowTo - Secure WCF with SSL</title>
+	<link rel="stylesheet" type="text/css" href="../Styles/Highlight.css">
+	<link rel="stylesheet" type="text/css" href="../Styles/Styles.css">
+</head>
+<body>
+	<h1>HowTo - Secure WCF with SSL</h1>
+	<section>
+		<h2>1. IIS Configuration</h2>
+		<p class="action">First register the ASP.NET support using the following command.</p>
+		<img src="../ScreenShots/SecureWcfWithSsl-01.png" title="Illustration" alt="Illustration" />
+		<p class="action">Execute the <span class="text-bold">Internet Information Services Manager</span> and open the <span class="text-bold">Server Certificates</span> section.</p>
+		<img src="../ScreenShots/SecureWcfWithSsl-02.png" title="Illustration" alt="Illustration" />
+		<p class="action">Create a new <span class="text-bold">Self-Signed Certificate</span>.</p>
+		<img src="../ScreenShots/SecureWcfWithSsl-03.png" title="Illustration" alt="Illustration" />
+		<p>Here an example.</p>
+		<img src="../ScreenShots/SecureWcfWithSsl-04.png" title="Illustration" alt="Illustration" />
+		<p>The certificate is now created.</p>
+		<img src="../ScreenShots/SecureWcfWithSsl-05.png" title="Illustration" alt="Illustration" />
+		<p class="action">Add a new <span class="text-bold">Web Site</span>.</p>
+		<img src="../ScreenShots/SecureWcfWithSsl-06.png" title="Illustration" alt="Illustration" />
+		<p class="action">Fill all the red fields and do not forget to link the certificate.</p>
+		<img src="../ScreenShots/SecureWcfWithSsl-07.png" title="Illustration" alt="Illustration" />
+		<p class="action">Open the <span class="text-bold">SSL Settings</span> section.</p>
+		<img src="../ScreenShots/SecureWcfWithSsl-08.png" title="Illustration" alt="Illustration" />
+		<p class="action">Check the <span class="text-bold">Require SSL</span> option and <span class="text-bold">Apply</span> the change.</p>
+		<img src="../ScreenShots/SecureWcfWithSsl-09.png" title="Illustration" alt="Illustration" />
+		<p class="action">Restart the IIS service to apply all the modifications.</p>
+		<img src="../ScreenShots/SecureWcfWithSsl-10.png" title="Illustration" alt="Illustration" />
+		<p class="action">Finally enter one of the WCF url in the browser (<span class="text-red">the solution must be compiled</span>). You shoud obtain a certificate error.</p>
+		<img src="../ScreenShots/SecureWcfWithSsl-11.png" title="Illustration" alt="Illustration" />
+		<p class="action">Accept the certificate to continue. You should obtain the following page.</p>
+		<img src="../ScreenShots/SecureWcfWithSsl-12.png" title="Illustration" alt="Illustration" />
+	</section>
+	<section>
+		<h2>2. SQL Server Configuration</h2>
+		<p>To bypass the following exception at runtime the database must be secure with a login.</p>
+		<img src="../ScreenShots/SecureWcfWithSsl-13.png" title="Illustration" alt="Illustration" />
+		<p class="action">If it is not the case create a new login to the server.</p>
+		<img src="../ScreenShots/SecureWcfWithSsl-14.png" title="Illustration" alt="Illustration" />
+		<p>Example.</p>
+		<img src="../ScreenShots/SecureWcfWithSsl-15.png" title="Illustration" alt="Illustration" />
+		<p class="action">Add a new login to the database.</p>
+		<img src="../ScreenShots/SecureWcfWithSsl-16.png" title="Illustration" alt="Illustration" />
+		<p>Example.</p>
+		<img src="../ScreenShots/SecureWcfWithSsl-17.png" title="Illustration" alt="Illustration" />
+		<p>Result.</p>
+		<img src="../ScreenShots/SecureWcfWithSsl-18.png" title="Illustration" alt="Illustration" />
+	</section>
+	<section>
+		<h2>3. WebServices Configuration</h2>
+		<p class="action">Edit the <span class="text-bold">Web.config</span> file and update the connection string with the authentication information.</p>
+		<pre class="hl"><span class="hl kwa">&lt;connectionStrings&gt;</span>
+  <span class="hl kwa">&lt;add</span>
+    <span class="hl kwb">name</span>=<span class="hl str">&quot;Default&quot;</span>
+    <span class="hl kwb">connectionString</span>=<span class="hl str">&quot;Data Source=localhost;Initial Catalog=Labs;<span class="text-red">User Id=Labs_User;Password=Labs_Pass</span>;&quot;</span> <span class="hl kwa">/&gt;</span>
+<span class="hl kwa">&lt;/connectionStrings&gt;</span></pre>
+		<p class="action">Edit the LayerCake Generator configuration file and set the <span class="text-bold">Config.WebServices.WithWcfSecurity</span> key to <span class="text-bold">true</span>.</p>
+		<pre class="hl"># -- WCF Services -------------------------------------------------------------------
+#                                                                   [Can be modified]
+# -----------------------------------------------------------------------------------
+
+# If Config.WebServices.WithWcfSecurity == false -&gt; RootUrl.Standard is used
+# If Config.WebServices.WithWcfSecurity == true  -&gt; RootUrl.Secure is used
+
+<span class="text-red text-bold">&quot;Config.WebServices.WithWcfSecurity&quot; : &quot;true&quot;</span>
+&quot;Config.WebServices.StandardRootUrl&quot; : &quot;http://localhost:64666&quot;        # IIS Express
+&quot;Config.WebServices.SecureRootUrl&quot; : &quot;https://localhost&quot;               # IIS + SSL</pre>
+		<p class="action">Execute LayerCake Generator process in order to update the code (the 'With SQL Procedure Integration' option can be uncheck).</p>
+		<p class="action">Recompile the whole solution and restart IIS.</p>
+		<div class="box important">
+		    <h3>Custom Authentication</h3>
+		    <div class="box-content">It is possible to customize the User Authentication (CustomUserValidator.cs).</div>
+		    <pre class="hl" style="margin-top:8px">namespace Com.Example.Labs.WebServices
+{
+    ...
+
+    public class CustomUserValidator : UserNamePasswordValidator
+    {
+        public bool IsValidated(string identifier, string password)
+        {
+            ...
+            
+            <span class="text-red">// Custom code here...
+            // ----------------------
+
+            isValidated = this.GetUserWithRoles(identifier, password) != null;
+
+            // ----------------------</span>
+
+            ...
+        }
+
+        ...
+    }
+}</pre>
+		</div>
+	</section>
+	<section>
+		<h2>4. Client Configuration</h2>
+		<p class="action">Edit the <span class="text-bold">App.config</span> file.</p>
+		<p class="action">1. Comment the &lt;security mode=&quot;None&quot; /&gt node</p>
+		<p class="action">2. Uncomment the &lt;security mode=&quot;TransportWithMessageCredential&quot;&gt; one</p>
+		<pre class="hl"><span class="hl kwa">&lt;?xml</span> <span class="hl kwb">version</span>=<span class="hl str">&quot;1.0&quot;</span><span class="hl kwa">?&gt;</span>
+<span class="hl kwa">&lt;configuration&gt;</span>
+
+  ...
+
+  <span class="hl kwa">&lt;system.serviceModel&gt;</span>
+    
+    ...
+
+    <span class="hl kwa">&lt;bindings&gt;</span>
+      <span class="hl kwa">&lt;wsHttpBinding&gt;</span>
+        <span class="hl kwa">&lt;binding</span>
+          <span class="hl kwb">closeTimeout</span>=<span class="hl str">&quot;00:02:00&quot;</span>
+          <span class="hl kwb">openTimeout</span>=<span class="hl str">&quot;00:02:00&quot;</span>
+          <span class="hl kwb">sendTimeout</span>=<span class="hl str">&quot;00:02:00&quot;</span>
+          <span class="hl kwb">maxBufferPoolSize</span>=<span class="hl str">&quot;2147483647&quot;</span>
+          <span class="hl kwb">maxReceivedMessageSize</span>=<span class="hl str">&quot;2147483647&quot;</span><span class="hl kwa">&gt;</span>
+          <span class="hl kwa">&lt;readerQuotas</span>
+            <span class="hl kwb">maxArrayLength</span>=<span class="hl str">&quot;2147483647&quot;</span>
+            <span class="hl kwb">maxNameTableCharCount</span>=<span class="hl str">&quot;2147483647&quot;</span>
+            <span class="hl kwb">maxStringContentLength</span>=<span class="hl str">&quot;2147483647&quot;</span>
+            <span class="hl kwb">maxDepth</span>=<span class="hl str">&quot;2147483647&quot;</span>
+            <span class="hl kwb">maxBytesPerRead</span>=<span class="hl str">&quot;2147483647&quot;</span> <span class="hl kwa">/&gt;</span>
+
+          <span class="hl slc">&lt;!--&lt;security mode=&quot;None&quot; /&gt--&gt;</span>
+
+          <span class="text-red">&lt;security mode=&quot;TransportWithMessageCredential&quot;&gt;
+            &lt;transport
+              clientCredentialType=&quot;None&quot;
+              proxyCredentialType=&quot;None&quot;
+              realm=&quot;&quot; /&gt;
+            &lt;message
+              clientCredentialType=&quot;UserName&quot;
+              negotiateServiceCredential=&quot;true&quot;
+              algorithmSuite=&quot;Default&quot;
+              establishSecurityContext=&quot;true&quot; /&gt;
+          &lt;/security&gt;</span>
+
+        <span class="hl kwa">&lt;/binding&gt;</span>
+      <span class="hl kwa">&lt;/wsHttpBinding&gt;</span>
+    <span class="hl kwa">&lt;/bindings&gt;</span>
+
+    ...
+
+  <span class="hl kwa">&lt;/system.serviceModel&gt;</span>
+
+<span class="hl kwa">&lt;/configuration&gt;</span></pre>
+		<p>3. Do not forget to update the <span class="text-bold">&lt;endpoint&gt;</span> nodes in order to use <span class="text-bold">https</span> addresses.</p>
+		<p class="action">Use the following code to validate the self-signed certificate (call it once at client application initialization).</p>
+		<pre class="hl">ServicePointManager<span class="hl opt">.</span>ServerCertificateValidationCallback <span class="hl opt">+=</span> <span class="hl kwa">new</span> <span class="hl kwd">RemoteCertificateValidationCallback</span><span class="hl opt">(</span>
+    ServerCertificateValidationHelper<span class="hl opt">.</span>ValidateRemoteCertificateCallback<span class="hl opt">);</span></pre>
+		<p class="action">Use the following code to register the client credentials (call it once when the user has submitted login/password).</p>
+		<pre class="hl">ServiceProxy<span class="hl opt">.</span><span class="hl kwd">SetClientCredentials</span><span class="hl opt">(</span><span class="hl str">&quot;username&quot;</span><span class="hl opt">,</span> <span class="hl str">&quot;password&quot;</span><span class="hl opt">);</span> <span class="hl slc">// from the User table...</span></pre>
+		<p>Now the client is ready to consume WCF services over SSL.</p>
+	</section>
+</body>
+</html>

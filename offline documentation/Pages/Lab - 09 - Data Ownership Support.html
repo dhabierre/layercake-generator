@@ -1,0 +1,163 @@
+﻿<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <title>LCG - 09 - Data Ownership Support</title>
+    <link rel="stylesheet" type="text/css" href="../Styles/Highlight.css">
+    <link rel="stylesheet" type="text/css" href="../Styles/Styles.css">
+</head>
+<body>
+    <h1>Lab 09 - Data Ownership Support</h1>
+    <section>
+        <p>Duration: <span class="text-bold">~15mins</span></p>
+        <p>Data ownership refers the possession of and responsibility for information. Ownership implies power as well as control. The control of information includes the ability to access, create, modify and remove data.</p>
+    </section>
+    <section>
+        <h2>1. Database Setup</h2>
+        <p>Set up the Data Ownership is really simple. Remember the <span class="text-bold">Client</span> table from previous Labs.</p>
+        <img src="../ScreenShots/09-01.png" title="Illustration" alt="Illustration" />
+        <p class="action">To implement the Data Ownership on this table you have to add the 6 following columns.</p>
+        <img src="../ScreenShots/09-02.png" title="Illustration" alt="Illustration" />
+        <p>Details</p>
+        <ul>
+            <li>
+                <div class="field">CreatedBy</div>
+                <div class="description">The ID of the record creator.</div>
+            </li>
+            <li>
+                <div class="field">CreatedOn</div>
+                <div class="description">The date of the record creation.</div>
+            </li>
+            <li>
+                <div class="field">ModifiedBy</div>
+                <div class="description">The ID of the last record modifier.</div>
+            </li>
+            <li>
+                <div class="field">ModifiedOn</div>
+                <div class="description">The date of the last record modification.</div>
+            </li>
+            <li>
+                <div class="field">Owner</div>
+                <div class="description">The ID of the record owner.</div>
+            </li>
+            <li>
+                <div class="field">IsLocked</div>
+                <div class="description">Value indicating whether the record is locked. When a record is locked it cannot be modified or deleted.</div>
+            </li>
+        </ul>
+        <div class="box warning">
+            <h3>Data Ownership Implementation</h3>
+            <div class="box-content">
+                <span>The table must define all the following columns</span>
+            </div>
+            <ul class="with-left-spacer">
+                <li>CreatedBy [BIGINT]</li>
+                <li>CreatedOn [DATETIME2](0)</li>
+                <li>ModifiedBy [BIGINT]</li>
+                <li>ModifiedOn [DATETIME2](0)</li>
+                <li>Owner [BIGINT]</li>
+                <li>IsLocked [BIT]</li>
+            </ul>
+			<div class="box-content">
+				<span>CreatedBy, ModifiedBy and Owner columns MUST NOT HAVE relationship with User table</span>
+			</div>
+        </div>
+        <p class="action">Run LayerCake Generator to update the source code.</p>
+        <img src="../ScreenShots/09-03.png" title="Illustration" alt="Illustration" />
+        <h3>2. Use Data Ownership</h3>
+        <p>In this code sample we create 2 Clients using 2 different user contexts.</p>
+        <pre class="hl"><span class="hl slc">// Create a new country...</span>
+<span class="hl slc">// ---------------------------------------</span>
+
+<span class="hl kwa">var</span> country <span class="hl opt">=</span> <span class="hl kwa">new</span> <span class="hl kwd">Country</span><span class="hl opt">();</span>
+
+country<span class="hl opt">.</span>Name<span class="hl opt">.</span><span class="hl kwd">SetValue</span><span class="hl opt">(</span><span class="hl str">&quot;USA&quot;</span><span class="hl opt">);</span>
+
+<span class="hl kwa">using</span> <span class="hl opt">(</span><span class="hl kwa">var</span> service <span class="hl opt">=</span> <span class="hl kwa">new</span> ServiceProxy<span class="hl opt">&lt;</span>ICountryService<span class="hl opt">&gt;())</span>
+<span class="hl opt">{</span>
+    service<span class="hl opt">.</span>Proxy<span class="hl opt">.</span><span class="hl kwd">Save</span><span class="hl opt">(</span>ClientContext<span class="hl opt">.</span>Admin<span class="hl opt">,</span> <span class="hl kwa">ref</span> country<span class="hl opt">);</span>
+<span class="hl opt">}</span>
+
+<span class="hl slc">// Create Client 1...</span>
+<span class="hl slc">// ---------------------------------------</span>
+
+<span class="hl kwa">var</span> client_1 <span class="hl opt">=</span> <span class="hl kwa">new</span> Client
+<span class="hl opt">{</span>
+    Firstname <span class="hl opt">=</span> <span class="hl str">&quot;C1&quot;</span><span class="hl opt">,</span> Lastname <span class="hl opt">=</span> <span class="hl str">&quot;C1&quot;</span><span class="hl opt">,</span> Ref <span class="hl opt">=</span> <span class="hl num">1</span><span class="hl opt">,</span> IdCountry <span class="hl opt">=</span> country<span class="hl opt">.</span>Id<span class="hl opt">,</span> Email <span class="hl opt">=</span> <span class="hl str">&quot;c1&#64;c1.org&quot;</span>
+<span class="hl opt">};</span>
+
+<span class="highlight-text">IUserContext userContext_1 = new ClientContext(10, &quot;userA&#64;userA&quot;, &quot;&quot;);</span>
+
+<span class="hl kwa">using</span> <span class="hl opt">(</span><span class="hl kwa">var</span> service <span class="hl opt">=</span> <span class="hl kwa">new</span> ServiceProxy<span class="hl opt">&lt;</span>IClientService<span class="hl opt">&gt;())</span>
+<span class="hl opt">{</span>
+    service<span class="hl opt">.</span>Proxy<span class="hl opt">.</span><span class="hl kwd">Save</span><span class="hl opt">(</span><span class="highlight-text">userContext_1</span><span class="hl opt">,</span> <span class="hl kwa">ref</span> client_1<span class="hl opt">);</span>
+<span class="hl opt">}</span>
+
+<span class="hl slc">// Create Client 2...</span>
+<span class="hl slc">// ---------------------------------------</span>
+
+<span class="hl kwa">var</span> client_2 <span class="hl opt">=</span> <span class="hl kwa">new</span> Client
+<span class="hl opt">{</span>
+    Firstname <span class="hl opt">=</span> <span class="hl str">&quot;C2&quot;</span><span class="hl opt">,</span> Lastname <span class="hl opt">=</span> <span class="hl str">&quot;C2&quot;</span><span class="hl opt">,</span> Ref <span class="hl opt">=</span> <span class="hl num">2</span><span class="hl opt">,</span> IdCountry <span class="hl opt">=</span> country<span class="hl opt">.</span>Id<span class="hl opt">,</span> Email <span class="hl opt">=</span> <span class="hl str">&quot;c2&#64;c2.org&quot;</span>
+<span class="hl opt">};</span>
+
+<span class="highlight-text">IUserContext userContext_2 = new ClientContext(20, &quot;userB&#64;userB&quot;,&quot;&quot;);</span>
+
+<span class="hl kwa">using</span> <span class="hl opt">(</span><span class="hl kwa">var</span> service <span class="hl opt">=</span> <span class="hl kwa">new</span> ServiceProxy<span class="hl opt">&lt;</span>IClientService<span class="hl opt">&gt;())</span>
+<span class="hl opt">{</span>
+    service<span class="hl opt">.</span>Proxy<span class="hl opt">.</span><span class="hl kwd">Save</span><span class="hl opt">(</span><span class="highlight-text">userContext_2</span><span class="hl opt">,</span> <span class="hl kwa">ref</span> client_2<span class="hl opt">);</span>
+<span class="hl opt">}</span></pre>
+        <p>Table records</p>
+		<pre class="hl">Client_Id  Client_IdCountry  Client_Firstname  Client_Lastname  Client_Email  Client_Ref  <span class="highlight-text">Client_CreatedBy</span>  Client_CreatedOn         Client_ModifiedBy  Client_ModifiedOn        Client_Owner  Client_IsLocked
+---------  ----------------  ----------------  ---------------  ------------  ----------  ----------------  -----------------------  -----------------  -----------------------  ------------  ---------------
+1          4                 C1                C1               c1&#64;c1.org     1           <span class="highlight-text">10</span>                2014-12-24 12:54:37      10                 2014-12-24 12:54:37      10   0
+2          4                 C2                C2               c2&#64;c2.org     2           <span class="highlight-text">20</span>                2014-12-24 12:54:37      20                 2014-12-24 12:54:37      20   0</pre>
+		<p>What's happening when a user tries to modify a record owned by another one? For example in the following code sample <span class="text-italic">UserB</span>&nbsp; tries to modify the Client owned by <span class="text-italic">UserA</span>...</p>
+		<pre class="hl"><span class="hl kwa">using</span> <span class="hl opt">(</span><span class="hl kwa">var</span> service <span class="hl opt">=</span> <span class="hl kwa">new</span> ServiceProxy<span class="hl opt">&lt;</span>IClientService<span class="hl opt">&gt;())</span>
+<span class="hl opt">{</span>
+	<span class="hl kwa">var</span> options <span class="hl opt">=</span> <span class="hl kwa">new</span> <span class="hl kwd">SearchOptions</span><span class="hl opt">();</span>
+	options<span class="hl opt">.</span>Filters<span class="hl opt">.</span><span class="hl kwd">Add</span><span class="hl opt">(</span>Client<span class="hl opt">.</span>ColumnNames<span class="hl opt">.</span>Ref<span class="hl opt">,</span> FilterOperator<span class="hl opt">.</span>Equals<span class="hl opt">,</span> <span class="hl num">1</span><span class="hl opt">);</span>
+
+	<span class="hl kwa">var</span> clients <span class="hl opt">=</span> service<span class="hl opt">.</span>Proxy<span class="hl opt">.</span><span class="hl kwd">Search</span><span class="hl opt">(</span>userContext_2<span class="hl opt">,</span> <span class="hl kwa">ref</span> options<span class="hl opt">);</span>
+	<span class="hl kwa">var</span> client <span class="hl opt">=</span> clients<span class="hl opt">.</span><span class="hl kwd">First</span><span class="hl opt">();</span>
+
+	client<span class="hl opt">.</span>Email <span class="hl opt">=</span> <span class="hl str">&quot;none&#64;nowhere.org&quot;</span><span class="hl opt">;</span>
+
+	service<span class="hl opt">.</span>Proxy<span class="hl opt">.</span><span class="hl kwd">Save</span><span class="hl opt">(</span>userContext_2<span class="hl opt">,</span> <span class="hl kwa">ref</span> client<span class="hl opt">);</span>
+<span class="hl opt">}</span></pre>
+		<p>The following exception is raised</p>
+		<img src="../ScreenShots/09-04.png" title="Illustration" alt="Illustration" />
+		<p>By default all modification operations (Save and Delete) with different owner are forbidden.</p>
+		<p>To bypass this control you have to set the <span class="text-bold">WithContextSecurity</span> option to false.</p>
+		<pre class="hl"><span class="highlight-text">userContext_2.Options.WithContextSecurity = false;</span>
+
+<span class="hl kwa">using</span> <span class="hl opt">(</span><span class="hl kwa">var</span> service <span class="hl opt">=</span> <span class="hl kwa">new</span> ServiceProxy<span class="hl opt">&lt;</span>IClientService<span class="hl opt">&gt;())</span>
+<span class="hl opt">{</span>
+    <span class="hl kwa">var</span> options <span class="hl opt">=</span> <span class="hl kwa">new</span> <span class="hl kwd">SearchOptions</span><span class="hl opt">();</span>
+    options<span class="hl opt">.</span>Filters<span class="hl opt">.</span><span class="hl kwd">Add</span><span class="hl opt">(</span>Client<span class="hl opt">.</span>ColumnNames<span class="hl opt">.</span>Ref<span class="hl opt">,</span> FilterOperator<span class="hl opt">.</span>Equals<span class="hl opt">,</span> <span class="hl num">1</span><span class="hl opt">);</span>
+
+    <span class="hl kwa">var</span> clients <span class="hl opt">=</span> service<span class="hl opt">.</span>Proxy<span class="hl opt">.</span><span class="hl kwd">Search</span><span class="hl opt">(</span>userContext_2<span class="hl opt">,</span> <span class="hl kwa">ref</span> options<span class="hl opt">);</span>
+    <span class="hl kwa">var</span> client <span class="hl opt">=</span> clients<span class="hl opt">.</span><span class="hl kwd">First</span><span class="hl opt">();</span>
+
+    client<span class="hl opt">.</span>Email <span class="hl opt">=</span> <span class="hl str">&quot;none&#64;nowhere.org&quot;</span><span class="hl opt">;</span>
+
+    service<span class="hl opt">.</span>Proxy<span class="hl opt">.</span><span class="hl kwd">Save</span><span class="hl opt">(</span>userContext_2<span class="hl opt">,</span> <span class="hl kwa">ref</span> client<span class="hl opt">);</span>
+<span class="hl opt">}</span></pre>
+		<p>Table records</p>
+		<pre class="hl">Client_Id  Client_IdCountry  Client_Firstname  Client_Lastname  Client_Email      Client_Ref  Client_CreatedBy  Client_CreatedOn     Client_ModifiedBy  Client_ModifiedOn    Client_Owner  Client_IsLocked
+---------  ----------------  ----------------  ---------------  ----------------  ----------  ----------------  -------------------  -----------------  -------------------  ------------  ---------------
+1          4                 C1                C1               <span class="highlight-text">none@nowhere.org</span>  1           10                2014-12-24 12:54:37  <span class="highlight-text">20</span>                 <span class="highlight-text">2014-12-24 12:57:51</span>  10            0
+2          4                 C2                C2               c2&#64;c2.org         2           20                2014-12-24 12:54:37  20                 2014-12-24 12:54:37  20            0</pre>
+		<div class="box important">
+			<h3>ClientContext.Anonymous</h3>
+			<div class="box-content">
+				<span>Data saved/updated using <span class="text-bold">ClientContext.Anonymous</span> (means that the <span class="text-italic">Owner</span> value is 0) can be updated or deleted by everyone.</span>
+			</div>
+		</div>
+		<p>It is possible to combine the Data Ownership with the Data Logging.</p>
+		<div class="box important">
+			<h3>Data Ownership with Data Logging</h3>
+			<div class="box-content">When implementing Data Ownership on a table <span class="text-italic">&lt;TableName&gt;</span> that implements Data Logging, the table <span class="text-italic">&lt;TableName&gt;_LOGS</span> must implements Data Ownership too (*_CreatedBy, *_ModifiedBy, etc).</div>
+		</div>
+    </section>
+</body>
+</html>

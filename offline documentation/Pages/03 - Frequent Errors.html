@@ -1,0 +1,61 @@
+﻿<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+	<title>LCG - 03 - Frequent Errors</title>
+	<link rel="stylesheet" type="text/css" href="../Styles/Highlight.css">
+	<link rel="stylesheet" type="text/css" href="../Styles/Styles.css">
+</head>
+<body>
+	<h1>03 - Frequent Errors</h1>
+	<section>
+		
+		<section>
+			<h2>1. Could not load file or assembly 'Microsoft.SqlServer.BatchParser</h2>
+			<p>The Microsoft SQL Server Shared Management Objects are not fully installed (LayerCake Generator dependency).</p>
+			<p>You have to install the <a href="http://www.layercake-generator.net/Dependencies.aspx">Shared SQL Server Management Objects</a>.</p>
+		</section>
+
+		<section>
+			<h2>2. Cannot find the 'Default' connectionString using ConfigurationManager.ConnectionStrings["Default"]</h2>
+			<p>The connection string cannot be found in the application configuration file.</p>
+			<ul>
+				<li>The application configuration file does not exist</li>
+				<li>The application configuration file exists but the connection string entry is not found</li>
+			</ul>
+			<p>The project must have the application configuration file (<span class="text-bold">App.config</span> or <span class="text-bold">Web.config</span>) with</p>
+			<pre class="hl"><span class="hl kwa">&lt;?xml</span> <span class="hl kwb">version</span>=<span class="hl str">&quot;1.0&quot;</span> <span class="hl kwb">encoding</span>=<span class="hl str">&quot;utf-8&quot;</span> <span class="hl kwa">?&gt;</span>
+<span class="hl kwa">&lt;configuration&gt;</span>
+  <span class="hl kwa">&lt;connectionStrings&gt;</span>
+    <span class="hl kwa">&lt;add</span> <span class="hl kwb">name</span>=<span class="hl str">&quot;Default&quot;</span> 
+      <span class="hl kwb">connectionString</span>=<span class="hl str">&quot;Data Source=localhost;Initial Catalog=Labs;Integrated Security=SSPI;&quot;</span> <span class="hl kwa">/&gt;</span>
+  <span class="hl kwa">&lt;/connectionStrings&gt;</span>
+<span class="hl kwa">&lt;/configuration&gt;</span></pre>
+       </section>
+
+		<section>
+			<h2>3. SQL71501: Procedure: [dbo].[...] has an unresolved reference to object [dbo].[TABLE].[COLUMN]</h2>
+			<p>The Database Project is not up-to-date.</p>
+			<p>Execute the <span class="text-bold">Compare/Update</span> operation to the Database Project using the <span class="text-bold">dbo\SqlSchemaCompare\SqlSchemaCompare.DEV.scmp</span> file.</p>
+		</section>
+
+		<section>
+			<h2>4. 04018: The "SqlBuildTask" task failed unexpectedly</h2>
+			<p>Your SQL Server Data Tools version is outdated.</p>
+			<p>Install the latest version of SQL Server Data Tools from Microsoft's site.</p>
+		</section>
+
+		<section>
+			<h2>5. Database Project &gt; Compare Schemas &gt; Cannot generate deployment plan</h2>
+			<p>1. Close Visual Studio and delete the dbml file in the Database Project. Then try again.</p>
+			<p>2. If it does not work try to switch the Source and Target and execute the compare operation again (and switch back according to your need).</p>
+		</section>
+
+		<section>
+			<h2>6. Failed to create extension manager for the target platform. 'Microsoft.Data.Tools.Schema.Sql.Sql120DatabaseSchemaProvider'</h2>
+			<p>Edit the Database Project sqlproj file with text editor and change the requirement to a lower version</p>
+			<pre class="hl"><span class="hl kwa">&lt;dsp&gt;</span>Microsoft.Data.Tools.Schema.Sql.<span class="text-red">Sql110DatabaseSchemaProvider</span><span class="hl kwa">&lt;/dsp&gt;</span></pre>
+		</section>
+
+	</section>
+</body>
+</html>

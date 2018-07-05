@@ -1,0 +1,153 @@
+﻿<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+	<title>LCG - HowTo - Table Inheritance</title>
+	<link rel="stylesheet" type="text/css" href="../Styles/Highlight.css">
+	<link rel="stylesheet" type="text/css" href="../Styles/Styles.css">
+</head>
+<body>
+	<h1>HowTo - Table Inheritance</h1>
+	<section>
+		<p>Consider the tables below.</p>
+		<img src="../ScreenShots/TableInheritance-01.png" title="Illustration" alt="Illustration" />
+		<img src="../ScreenShots/TableInheritance-02.png" title="Illustration" alt="Illustration" />
+		<img src="../ScreenShots/TableInheritance-03.png" title="Illustration" alt="Illustration" />
+		<p>The inherited columns are Id, ReleaseDate, Title, Description and Price.</p>
+		<p>Create the <span class="text-bold">IArticle</span> interface in the Com.Example.Labs.Models project.</p>
+		<pre class="hl"><span class="hl slc">// Models | IArticle.cs</span>
+
+<span class="hl kwa">namespace</span> Com<span class="hl opt">.</span>Example<span class="hl opt">.</span>Labs<span class="hl opt">.</span><span class="text-red">Models</span>
+<span class="hl opt">{</span>
+    <span class="hl kwa">using</span> System<span class="hl opt">;</span>
+
+    <span class="hl kwa">public interface</span> <span class="text-red text-bold">IArticle</span>
+    <span class="hl opt">{</span>
+        <span class="hl kwb">long</span> Id <span class="hl opt">{</span> <span class="hl kwa">get</span><span class="hl opt">;</span> <span class="hl kwa">set</span><span class="hl opt">; }</span>
+        <span class="hl kwb">DateTime</span> ReleaseDate <span class="hl opt">{</span> <span class="hl kwa">get</span><span class="hl opt">;</span> <span class="hl kwa">set</span><span class="hl opt">; }</span>
+        <span class="hl kwb">string</span> Title <span class="hl opt">{</span> <span class="hl kwa">get</span><span class="hl opt">;</span> <span class="hl kwa">set</span><span class="hl opt">; }</span>
+        <span class="hl kwb">string</span> Description <span class="hl opt">{</span> <span class="hl kwa">get</span><span class="hl opt">;</span> <span class="hl kwa">set</span><span class="hl opt">; }</span>
+        <span class="hl kwb">decimal</span> Price <span class="hl opt">{</span> <span class="hl kwa">get</span><span class="hl opt">;</span> <span class="hl kwa">set</span><span class="hl opt">; }</span>
+    <span class="hl opt">}</span>
+<span class="hl opt">}</span></pre>
+		<p>Note that the property types must be the same as thoses defined in the generated classes.</p>
+		<p>Add the <span class="text-bold">IArticle</span> interface to the Book (<span class="text-bold">Book.custom.cs</span>), AudioCD (<span class="text-bold">AudioCD.custom.cs</span>) and Newspaper (<span class="text-bold">Newspaper.custom.cs</span>) classes.</p>
+		<pre class="hl"><span class="hl slc">// Models | Book.custom.cs</span>
+
+<span class="hl kwa">public partial class</span> Book <span class="hl opt">:</span> <span class="text-red text-bold">IArticle</span>
+<span class="hl opt">{</span>
+<span class="hl opt">}</span></pre>
+		<pre class="hl"><span class="hl slc">// Models | AudioCD.custom.cs</span>
+		
+<span class="hl kwa">public partial class</span> AudioCD <span class="hl opt">:</span> <span class="text-red text-bold">IArticle</span>
+<span class="hl opt">{</span>
+<span class="hl opt">}</span></pre>
+		<pre class="hl"><span class="hl slc">// Models | Newspaper.custom.cs</span>
+
+<span class="hl kwa">public partial class</span> Newspaper <span class="hl opt">:</span> <span class="text-red text-bold">IArticle</span>
+<span class="hl opt">{</span>
+<span class="hl opt">}</span></pre>
+		<p>Add the new <span class="text-bold">ArticleBusiness.cs</span> file (Com.Example.Labs.Business/AppBusiness/ArticleBusiness.cs).</p>
+		<pre class="hl"><span class="hl slc">// Business | ArticleBusiness.cs</span>
+
+<span class="hl kwa">namespace</span> Com<span class="hl opt">.</span>Example<span class="hl opt">.</span>Labs<span class="hl opt">.</span><span class="text-red">Business</span>
+<span class="hl opt">{</span>
+    <span class="hl kwa">using</span> System<span class="hl opt">;</span>
+    <span class="hl kwa">using</span> System<span class="hl opt">.</span>Linq<span class="hl opt">;</span>
+    <span class="hl kwa">using</span> System<span class="hl opt">.</span>Threading<span class="hl opt">.</span>Tasks<span class="hl opt">;</span>
+
+    <span class="hl kwa">using</span> Com<span class="hl opt">.</span>Example<span class="hl opt">.</span>Labs<span class="hl opt">.</span>Core<span class="hl opt">;</span>
+    <span class="hl kwa">using</span> Com<span class="hl opt">.</span>Example<span class="hl opt">.</span>Labs<span class="hl opt">.</span>Models<span class="hl opt">;</span>
+    <span class="hl kwa">using</span> Com<span class="hl opt">.</span>Example<span class="hl opt">.</span>Labs<span class="hl opt">.</span>Crud<span class="hl opt">;</span>
+
+    <span class="hl opt">[</span><span class="hl kwd">BusinessClass</span><span class="hl opt">]</span>
+    <span class="hl kwa">public class</span> ArticleBusiness <span class="hl opt">:</span> BusinessBase
+    <span class="hl opt">{</span>
+        <span class="hl opt">[</span><span class="hl kwd">BusinessMethod</span><span class="hl opt">]</span>
+        <span class="hl kwa">public</span> TCollection<span class="hl opt">&lt;</span><span class="text-red text-bold">IArticle</span><span class="hl opt">&gt;</span> <span class="hl kwd">GetLatestArticles</span><span class="hl opt">(</span>IUserContext userContext<span class="hl opt">,</span> <span class="hl kwb">int</span> maxRecords <span class="hl opt">=</span> <span class="hl num">50</span><span class="hl opt">)</span>
+        <span class="hl opt">{</span>
+            TCollection<span class="hl opt">&lt;</span>Book<span class="hl opt">&gt;</span> bookCollection <span class="hl opt">=</span> <span class="hl kwa">null</span><span class="hl opt">;</span>
+            TCollection<span class="hl opt">&lt;</span>AudioCD<span class="hl opt">&gt;</span> audioCDCollection <span class="hl opt">=</span> <span class="hl kwa">null</span><span class="hl opt">;</span>
+            TCollection<span class="hl opt">&lt;</span>Newspaper<span class="hl opt">&gt;</span> newspaperCollection <span class="hl opt">=</span> <span class="hl kwa">null</span><span class="hl opt">;</span>
+
+            Parallel<span class="hl opt">.</span><span class="hl kwd">Invoke</span><span class="hl opt">(</span><span class="hl kwa">
+                new</span> ParallelOptions
+                <span class="hl opt">{</span>
+                    MaxDegreeOfParallelism <span class="hl opt">=</span> Environment<span class="hl opt">.</span>ProcessorCount
+                <span class="hl opt">},</span>
+                <span class="hl opt">() =&gt;</span>
+                <span class="hl opt">{</span>
+                    SearchOptions options <span class="hl opt">=</span> <span class="hl kwa">new</span> <span class="hl kwd">SearchOptions</span><span class="hl opt">();</span>
+
+                    options<span class="hl opt">.</span>Orders<span class="hl opt">.</span><span class="hl kwd">Add</span><span class="hl opt">(</span>Book<span class="hl opt">.</span>ColumnNames<span class="hl opt">.</span>ReleaseDate<span class="hl opt">,</span> OrderOperator<span class="hl opt">.</span>Desc<span class="hl opt">);</span>
+                    options<span class="hl opt">.</span>MaxRecords <span class="hl opt">=</span> maxRecords<span class="hl opt">;</span>
+
+                    <span class="hl kwa">using</span> <span class="hl opt">(</span>BookCrud db <span class="hl opt">=</span> <span class="hl kwa">new</span> <span class="hl kwd">BookCrud</span><span class="hl opt">(</span>userContext<span class="hl opt">))</span>
+                        bookCollection <span class="hl opt">=</span> db<span class="hl opt">.</span><span class="hl kwd">Search</span><span class="hl opt">(</span><span class="hl kwa">ref</span> options<span class="hl opt">);</span>
+                <span class="hl opt">},</span>
+                <span class="hl opt">() =&gt;</span>
+                <span class="hl opt">{</span>
+                    SearchOptions options <span class="hl opt">=</span> <span class="hl kwa">new</span> <span class="hl kwd">SearchOptions</span><span class="hl opt">();</span>
+
+                    options<span class="hl opt">.</span>Orders<span class="hl opt">.</span><span class="hl kwd">Add</span><span class="hl opt">(</span>AudioCD<span class="hl opt">.</span>ColumnNames<span class="hl opt">.</span>ReleaseDate<span class="hl opt">,</span> OrderOperator<span class="hl opt">.</span>Desc<span class="hl opt">);</span>
+                    options<span class="hl opt">.</span>MaxRecords <span class="hl opt">=</span> maxRecords<span class="hl opt">;</span>
+
+                    <span class="hl kwa">using</span> <span class="hl opt">(</span>AudioCDCrud db <span class="hl opt">=</span> <span class="hl kwa">new</span> <span class="hl kwd">AudioCDCrud</span><span class="hl opt">(</span>userContext<span class="hl opt">))</span>
+                        audioCDCollection <span class="hl opt">=</span> db<span class="hl opt">.</span><span class="hl kwd">Search</span><span class="hl opt">(</span><span class="hl kwa">ref</span> options<span class="hl opt">);</span>
+                <span class="hl opt">},</span>
+                <span class="hl opt">() =&gt;</span>
+                <span class="hl opt">{</span>
+                    SearchOptions options <span class="hl opt">=</span> <span class="hl kwa">new</span> <span class="hl kwd">SearchOptions</span><span class="hl opt">();</span>
+
+                    options<span class="hl opt">.</span>Orders<span class="hl opt">.</span><span class="hl kwd">Add</span><span class="hl opt">(</span>Newspaper<span class="hl opt">.</span>ColumnNames<span class="hl opt">.</span>ReleaseDate<span class="hl opt">,</span> OrderOperator<span class="hl opt">.</span>Desc<span class="hl opt">);</span>
+                    options<span class="hl opt">.</span>MaxRecords <span class="hl opt">=</span> maxRecords<span class="hl opt">;</span>
+
+                    <span class="hl kwa">using</span> <span class="hl opt">(</span>NewspaperCrud db <span class="hl opt">=</span> <span class="hl kwa">new</span> <span class="hl kwd">NewspaperCrud</span><span class="hl opt">(</span>userContext<span class="hl opt">))</span>
+                        newspaperCollection <span class="hl opt">=</span> db<span class="hl opt">.</span><span class="hl kwd">Search</span><span class="hl opt">(</span><span class="hl kwa">ref</span> options<span class="hl opt">);</span>
+                <span class="hl opt">}</span>
+            <span class="hl opt">);</span>
+
+            TCollection<span class="hl opt">&lt;</span>IArticle<span class="hl opt">&gt;</span> collection <span class="hl opt">=</span> <span class="hl kwa">new</span> TCollection<span class="hl opt">&lt;</span>IArticle<span class="hl opt">&gt;();</span>
+
+            collection<span class="hl opt">.</span><span class="hl kwd">AddRange</span><span class="hl opt">(</span>bookCollection<span class="hl opt">);</span>
+            collection<span class="hl opt">.</span><span class="hl kwd">AddRange</span><span class="hl opt">(</span>audioCDCollection<span class="hl opt">);</span>
+            collection<span class="hl opt">.</span><span class="hl kwd">AddRange</span><span class="hl opt">(</span>newspaperCollection<span class="hl opt">);</span>
+
+            <span class="hl kwa">return</span> collection<span class="hl opt">.</span><span class="hl kwd">OrderBy</span><span class="hl opt">(</span>i <span class="hl opt">=&gt;</span> i<span class="hl opt">.</span>ReleaseDate<span class="hl opt">).</span><span class="hl kwd">Take</span><span class="hl opt">(</span>maxRecords<span class="hl opt">).</span><span class="hl kwd">ToTCollection</span><span class="hl opt">();</span>
+        <span class="hl opt">}</span>
+    <span class="hl opt">}</span>
+<span class="hl opt">}</span></pre>
+		<p>If this method is executed on client-side...</p>
+		<pre class="hl"><span class="hl kwa">using</span> <span class="hl opt">(</span><span class="hl kwa">var</span> service <span class="hl opt">=</span> <span class="hl kwa">new</span> ServiceProxy<span class="hl opt">&lt;</span>IArticleService<span class="hl opt">&gt;())</span>
+<span class="hl opt">{</span>
+    TCollection<span class="hl opt">&lt;</span>IArticle<span class="hl opt">&gt;</span> articles <span class="hl opt">=</span> service<span class="hl opt">.</span>Proxy<span class="hl opt">.</span><span class="hl kwd">GetLatestProducts</span><span class="hl opt">(</span>ClientContext<span class="hl opt">.</span>Anonymous<span class="hl opt">,</span> <span class="hl num">5</span><span class="hl opt">);</span>
+<span class="hl opt">}</span></pre>
+		<p>... the following exception can be raised (if data is retrieved from the database).</p>
+		<pre class="hl text-red"><span class="text-red">An exception of type 'System.ServiceModel.Dispatcher.NetDispatcherFaultException' occurred in
+mscorlib.dll but was not handled in user code</span>
+
+Additional information: The formatter threw an exception while trying to deserialize the message:
+There was an error while trying to deserialize parameter http://labs.example.com/v1:GetLatestArticlesResult.
+The InnerException message was 'Error in line 1 position 739. Element 'http://labs.example.com/v1:anyType'
+contains data from a type that maps to the name 'http://labs.example.com/v1:Book'. The deserializer
+has no knowledge of any type that maps to this name. <span class="text-red">Consider using a DataContractResolver or add
+the type corresponding to 'Book' to the list of known types</span> - for example, by using the
+KnownTypeAttribute attribute or by adding it to the list of known types passed to DataContractSerializer.'.</pre>
+		<p>If it is the case create the Com.Example.Labs.Contracts/Contracts/<span class="text-bold">IArticleContract.custom.cs</span> file and add the known types.</p>
+		<pre class="hl"><span class="hl slc">// Contracts | IArticleContract.custom.cs</span>
+
+<span class="hl kwa">namespace</span> Com<span class="hl opt">.</span>Example<span class="hl opt">.</span>Labs<span class="hl opt">.</span><span class="text-red">Contracts</span>
+<span class="hl opt">{</span>
+    <span class="hl kwa">using</span> System<span class="hl opt">.</span>ServiceModel<span class="hl opt">;</span>
+    
+    <span class="hl slc">// IArticle Known Types</span>
+    <span class="hl opt">[</span><span class="hl kwd">ServiceKnownType</span><span class="hl opt">(</span><span class="hl kwd">typeof</span><span class="hl opt">(</span><span class="text-red">Com.Example.Labs.Models.Book</span><span class="hl opt">))]</span>
+    <span class="hl opt">[</span><span class="hl kwd">ServiceKnownType</span><span class="hl opt">(</span><span class="hl kwd">typeof</span><span class="hl opt">(</span><span class="text-red">Com.Example.Labs.Models.AudioCD</span><span class="hl opt">))]</span>
+    <span class="hl opt">[</span><span class="hl kwd">ServiceKnownType</span><span class="hl opt">(</span><span class="hl kwd">typeof</span><span class="hl opt">(</span><span class="text-red">Com.Example.Labs.Models.Newspaper</span><span class="hl opt">))]</span>
+    <span class="hl kwa">public partial interface</span> IArticleService
+    <span class="hl opt">{</span>
+    <span class="hl opt">}</span>
+<span class="hl opt">}</span></pre>
+		<p>Recompile the solution and restart the WebServices. Now the WFC call should be fine.</p>
+	</section>
+</body>
+</html>

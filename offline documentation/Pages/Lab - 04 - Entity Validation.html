@@ -1,0 +1,61 @@
+﻿<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <title>LCG - 04 - Entity Validation</title>
+    <link rel="stylesheet" type="text/css" href="../Styles/Highlight.css">
+    <link rel="stylesheet" type="text/css" href="../Styles/Styles.css">
+</head>
+<body>
+    <h1>Lab 04 - Entity Validation</h1>
+    <section>
+        <p>Duration: <span class="text-bold">~5mins</span></p>
+		<p>The validation of entities' properties is automatically performed using <span class="text-bold">partial methods</span>.</p>
+    </section>
+    <section>
+		<p>Here an example to validate the <span class="text-bold">Email</span> value of the <span class="text-bold">Client</span> entity.</p>
+		<p class="action">Open the <span class="text-bold">Models\Entities\Client.custom.cs</span> file and add the <span class="text-bold">partial OnEmailValidation()</span> method.</p>
+        <pre class="hl">﻿<span class="hl kwa">namespace</span> Com<span class="hl opt">.</span>Example<span class="hl opt">.</span>Labs<span class="hl opt">.</span>Models
+<span class="hl opt">{</span>
+    <span class="hl kwa">using</span> System<span class="hl opt">;</span>
+
+    <span class="hl kwa">using</span> Com<span class="hl opt">.</span>Example<span class="hl opt">.</span>Labs<span class="hl opt">.</span>Core<span class="hl opt">;</span>
+
+    <span class="hl kwa">public partial class</span> Client
+    <span class="hl opt">{</span>
+        <span class="hl ppc">#region [ Initialize Method ]</span>
+
+        <span class="hl kwa">protected override</span> <span class="hl kwb">void</span> <span class="hl kwd">Initialize</span><span class="hl opt">()</span>
+        <span class="hl opt">{</span>
+            <span class="hl slc">// ...</span>
+        <span class="hl opt">}</span>
+
+        <span class="hl ppc">#endregion</span>
+
+        <span class="hl ppc">#region [ Calculated Properties ]</span>
+
+        <span class="hl kwa">public</span> <span class="hl kwb">string</span> Fullname
+        <span class="hl opt">{</span>
+            <span class="hl kwa">get</span> <span class="hl opt">{</span> <span class="hl kwa">return</span> <span class="hl kwb">string</span><span class="hl opt">.</span><span class="hl kwd">Format</span><span class="hl opt">(</span><span class="hl str">&quot;{0} {1}&quot;</span><span class="hl opt">,</span> <span class="hl kwa">this</span><span class="hl opt">.</span>Firstname<span class="hl opt">,</span> <span class="hl kwa">this</span><span class="hl opt">.</span>Lastname<span class="hl opt">); }</span>
+        <span class="hl opt">}</span>
+
+        <span class="hl ppc">#endregion</span>
+
+        <span class="hl ppc">#region [ <span class="highlight-text">Validation Methods</span> ]</span>
+
+        <span class="hl slc">// Enter the 'partial' keywork and press 'SPACE' key to get the partial methods that can be defined...</span>
+
+        <span class="hl kwa">partial</span> <span class="hl kwb">void</span> <span class="hl kwd">OnEmailValidation</span><span class="hl opt">(</span><span class="hl kwa">ref</span> TranslationEnum<span class="hl opt">?</span> error<span class="hl opt">)</span>
+        <span class="hl opt">{</span>
+            <span class="hl kwa">if</span> <span class="hl opt">(!</span>ValidationHelper<span class="hl opt">.</span><span class="hl kwd">IsEmailAddress</span><span class="hl opt">(</span><span class="hl kwa">this</span><span class="hl opt">.</span>Email<span class="hl opt">))</span>
+            <span class="hl opt">{</span>
+                error <span class="hl opt">=</span> TranslationEnum<span class="hl opt">.</span>ModelClientEmailBadValueOrFormat<span class="hl opt">;</span>
+            <span class="hl opt">}</span>
+        <span class="hl opt">}</span>
+
+        <span class="hl ppc">#endregion</span>
+    <span class="hl opt">}</span>
+<span class="hl opt">}</span></pre>
+		<p>Finally to validate the entity invoke the <span class="text-bold">IsValid()</span> method. All the defined partial methods are automatically invoked.</p>
+    </section>
+</body>
+</html>

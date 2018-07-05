@@ -1,0 +1,125 @@
+-- ------------------------------------------------
+-- DROP TABLES
+-- ------------------------------------------------
+
+IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[Book]') AND type in (N'U'))
+BEGIN
+	ALTER TABLE [dbo].[Book] DROP CONSTRAINT [FK_Book_Category]
+	DROP TABLE [dbo].[Book]
+END
+GO
+IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[Phone]') AND type in (N'U'))
+BEGIN
+	ALTER TABLE [dbo].[Phone] DROP CONSTRAINT [FK_Phone_Category]
+	DROP TABLE [dbo].[Phone]
+END
+GO
+IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[Category]') AND type in (N'U'))
+BEGIN
+	DROP TABLE [dbo].[Category]
+END
+GO
+
+-- ------------------------------------------------
+-- CREATE TABLES
+-- ------------------------------------------------
+
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+SET ANSI_PADDING ON
+GO
+CREATE TABLE [dbo].[Category]
+(
+	[Category_Id] [bigint] IDENTITY(1,1) NOT NULL,
+	[Category_IdCategoryFather] [bigint] NULL,
+	[Category_Name] [varchar](64) NOT NULL,
+	[Category_Rank] [int] NOT NULL,
+	CONSTRAINT [PK_Category] PRIMARY KEY CLUSTERED ([Category_Id] ASC)
+	WITH (PAD_INDEX  = OFF, STATISTICS_NORECOMPUTE  = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS  = ON, ALLOW_PAGE_LOCKS  = ON) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+SET ANSI_PADDING OFF
+GO
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+SET ANSI_PADDING ON
+GO
+CREATE TABLE [dbo].[Phone]
+(
+	[Phone_Id] [bigint] IDENTITY(1,1) NOT NULL,
+	[Phone_IdCategory] [bigint] NOT NULL,
+	[Phone_Title] [varchar](64) NOT NULL,
+	CONSTRAINT [PK_Phone] PRIMARY KEY CLUSTERED ([Phone_Id] ASC)
+	WITH (PAD_INDEX  = OFF, STATISTICS_NORECOMPUTE  = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS  = ON, ALLOW_PAGE_LOCKS  = ON) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+SET ANSI_PADDING OFF
+GO
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+SET ANSI_PADDING ON
+GO
+CREATE TABLE [dbo].[Book]
+(
+	[Book_Id] [bigint] IDENTITY(1,1) NOT NULL,
+	[Book_IdCategory] [bigint] NOT NULL,
+	[Book_Title] [varchar](64) NOT NULL,
+	CONSTRAINT [PK_Book] PRIMARY KEY CLUSTERED ([Book_Id] ASC)
+	WITH (PAD_INDEX  = OFF, STATISTICS_NORECOMPUTE  = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS  = ON, ALLOW_PAGE_LOCKS  = ON) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+SET ANSI_PADDING OFF
+GO
+
+-- CONSTRAINTS
+
+ALTER TABLE [dbo].[Book]  WITH CHECK ADD  CONSTRAINT [FK_Book_Category] FOREIGN KEY([Book_IdCategory])
+REFERENCES [dbo].[Category] ([Category_Id])
+GO
+ALTER TABLE [dbo].[Book] CHECK CONSTRAINT [FK_Book_Category]
+GO
+ALTER TABLE [dbo].[Category]  WITH CHECK ADD  CONSTRAINT [FK_Category_CategoryFather] FOREIGN KEY([Category_IdCategoryFather])
+REFERENCES [dbo].[Category] ([Category_Id])
+GO
+ALTER TABLE [dbo].[Category] CHECK CONSTRAINT [FK_Category_CategoryFather]
+GO
+ALTER TABLE [dbo].[Phone]  WITH CHECK ADD  CONSTRAINT [FK_Phone_Category] FOREIGN KEY([Phone_IdCategory])
+REFERENCES [dbo].[Category] ([Category_Id])
+GO
+ALTER TABLE [dbo].[Phone] CHECK CONSTRAINT [FK_Phone_Category]
+GO
+
+-- ------------------------------------------------
+-- INSERTS
+-- ------------------------------------------------
+
+INSERT INTO Category (Category_IdCategoryFather, Category_Name, Category_Rank) VALUES (NULL, 'Books', 1)
+INSERT INTO Category (Category_IdCategoryFather, Category_Name, Category_Rank) VALUES (NULL, 'Phones', 2)
+INSERT INTO Category (Category_IdCategoryFather, Category_Name, Category_Rank) VALUES (1, 'Crime & Thriller', 1)
+INSERT INTO Category (Category_IdCategoryFather, Category_Name, Category_Rank) VALUES (1, 'Science Fiction', 2)
+INSERT INTO Category (Category_IdCategoryFather, Category_Name, Category_Rank) VALUES (3, 'Crime', 1)
+INSERT INTO Category (Category_IdCategoryFather, Category_Name, Category_Rank) VALUES (3, 'Thriller', 2)
+INSERT INTO Category (Category_IdCategoryFather, Category_Name, Category_Rank) VALUES (2, 'Apple', 1)
+INSERT INTO Category (Category_IdCategoryFather, Category_Name, Category_Rank) VALUES (2, 'Nokia', 2)
+INSERT INTO Category (Category_IdCategoryFather, Category_Name, Category_Rank) VALUES (2, 'Samsung', 3)
+INSERT INTO Category (Category_IdCategoryFather, Category_Name, Category_Rank) VALUES (9, 'Galaxy Note', 1)
+INSERT INTO Category (Category_IdCategoryFather, Category_Name, Category_Rank) VALUES (9, 'Galaxy S', 2)
+
+INSERT INTO Book (Book_IdCategory, Book_Title) VALUES (3, 'Crime & Thriller 1')
+INSERT INTO Book (Book_IdCategory, Book_Title) VALUES (3, 'Crime & Thriller 2')
+INSERT INTO Book (Book_IdCategory, Book_Title) VALUES (4, 'Science Fiction 1')
+INSERT INTO Book (Book_IdCategory, Book_Title) VALUES (5, 'Crime 1')
+INSERT INTO Book (Book_IdCategory, Book_Title) VALUES (6, 'Thriller 1')
+INSERT INTO Book (Book_IdCategory, Book_Title) VALUES (6, 'Thriller 2')
+
+INSERT INTO Phone (Phone_IdCategory, Phone_Title) VALUES (10, 'Galaxy Note 2')
+INSERT INTO Phone (Phone_IdCategory, Phone_Title) VALUES (10, 'Galaxy Note 3')
+INSERT INTO Phone (Phone_IdCategory, Phone_Title) VALUES (11, 'Galaxy S 1')
+INSERT INTO Phone (Phone_IdCategory, Phone_Title) VALUES (11, 'Galaxy S 2')
+INSERT INTO Phone (Phone_IdCategory, Phone_Title) VALUES (11, 'Galaxy S 3')

@@ -1,0 +1,280 @@
+﻿<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+	<title>LCG - HowTo - DataBin Support</title>
+	<link rel="stylesheet" type="text/css" href="../Styles/Highlight.css">
+	<link rel="stylesheet" type="text/css" href="../Styles/Styles.css">
+</head>
+<body>
+	<h1>HowTo - DataBin Support</h1>
+	<section>
+		<p>LayerCake Generator comes with the <span class="text-bold">DataBinMaker</span> tool. It is located to the <span class="text-bold">Binaries\DataBinMaker</span> folder.</p>
+        <img src="../ScreenShots/DataBinSupport-01.png" title="Illustration" alt="Illustration" />
+        <p>This tool is used to extract data from the database and to create bin files with compression support. It should be used with big data to increase client application performances.</p>
+        <p>Let's take an example.</p>
+        <p>Our database has 3 tables.</p>
+        <img src="../ScreenShots/DataBinSupport-02.png" title="Illustration" alt="Illustration" />
+        <p>These tables contain all the cities, departments and regions of France (37008 cities !).</p>
+        <p>Suppose we want to create a new method to retrieve all the cities with the associated departments and regions.</p>
+        <ul>
+            <li>1. Write the <span class="text-bold">City_Custom_GetAllCities</span> stored procedure</li>
+            <li>2. Write the <span class="text-bold">GetAllCities</span> method in the <span class="text-bold">CityCrud</span> class</li>
+            <li>3. Write the <span class="text-bold">GetCityCollection</span> business method in a custom <span class="text-bold">LocalisationBusiness</span> class (exposed on client-side with WCF)</li>
+        </ul>
+        <p><span class="text-bold">City_Custom_GetAllCities</span> stored procedure</p>
+        <pre class="hl"><span class="hl kwa">CREATE PROCEDURE</span> <span class="hl opt">[</span>dbo<span class="hl opt">]</span>.<span class="hl opt">[</span>City_Custom_GetAllCities<span class="hl opt">]</span>
+<span class="hl opt">(</span>
+    &#64;CtxUser <span class="hl kwb">BIGINT</span><span class="hl opt"> =</span> <span class="hl kwa">NULL</span><span class="hl opt">,</span>			<span class="hl slc">-- Not used</span>
+    &#64;CtxCulture <span class="hl kwb">VARCHAR</span><span class="hl opt">(</span><span class="hl num">2</span><span class="hl opt">) =</span> <span class="hl str">N'EN'</span><span class="hl opt">,</span>		<span class="hl slc">-- Not used</span>
+    &#64;CtxWithContextSecurity <span class="hl kwa">BIT</span> <span class="hl opt">=</span> <span class="hl str">N'True'</span>	<span class="hl slc">-- Not used</span>
+<span class="hl opt">)</span>
+<span class="hl kwa">AS</span>
+<span class="hl kwa">BEGIN</span>
+    <span class="hl kwa">SET NOCOUNT ON</span><span class="hl opt">;</span>
+
+    <span class="hl kwa">SELECT</span>
+        <span class="hl opt">[</span>Region<span class="hl opt">]</span>.<span class="hl opt">*,</span>
+        <span class="hl opt">[</span>Department<span class="hl opt">]</span>.<span class="hl opt">*,</span>
+        <span class="hl opt">[</span>City<span class="hl opt">]</span>.<span class="hl opt">*</span>
+
+    <span class="hl kwa">FROM</span>
+        <span class="hl opt">[</span>City<span class="hl opt">]</span>
+        <span class="hl kwa">INNER JOIN</span> <span class="hl opt">[</span>Department<span class="hl opt">]</span> <span class="hl kwa">ON</span> <span class="hl opt">[</span>Department<span class="hl opt">]</span>.<span class="hl opt">[</span>Department_Id<span class="hl opt">] = [</span>City<span class="hl opt">]</span>.<span class="hl opt">[</span>City_IdDepartment<span class="hl opt">]</span>
+        <span class="hl kwa">INNER JOIN</span> <span class="hl opt">[</span>Region<span class="hl opt">]</span> <span class="hl kwa">ON</span> <span class="hl opt">[</span>Region<span class="hl opt">]</span>.<span class="hl opt">[</span>Region_Id<span class="hl opt">] = [</span>Department<span class="hl opt">]</span>.<span class="hl opt">[</span>Department_IdRegion<span class="hl opt">]</span>
+
+    <span class="hl kwa">ORDER BY</span>
+        <span class="hl opt">[</span>City<span class="hl opt">]</span>.<span class="hl opt">[</span>City_Name<span class="hl opt">], [</span>City<span class="hl opt">]</span>.<span class="hl opt">[</span>City_Code<span class="hl opt">]</span>
+<span class="hl kwa">END</span></pre>
+        <p><span class="text-bold">GetAllCities</span> method (in the <span class="text-bold">CityCrud</span> class)</p>
+        <pre class="hl"><span class="hl com">// Crud | CityCrud.custom.cs</span>
+
+<span class="hl kwa">public partial class</span> CityCrud
+<span class="hl opt">{</span>
+    <span class="hl slc">/// &lt;summary&gt;</span>
+    <span class="hl slc">/// Retrieves all the City records from the database (with the Departments and Regions)</span>
+    <span class="hl slc">/// &lt;/summary&gt;</span>
+    <span class="hl slc">/// &lt;returns&gt;The collection of City instances.&lt;/returns&gt;</span>
+    <span class="hl kwa">public</span> TCollection<span class="hl opt">&lt;</span>City<span class="hl opt">&gt;</span> <span class="hl kwd">GetAllCities</span><span class="hl opt">()</span>
+    <span class="hl opt">{</span>
+        <span class="hl kwa">using</span> <span class="hl opt">(</span><span class="hl kwa">var</span> et <span class="hl opt">=</span> <span class="hl kwa">new</span> <span class="hl kwd">ExecutionTracerService</span><span class="hl opt">())</span>
+        <span class="hl opt">{</span>
+            <span class="hl kwa">return base</span><span class="hl opt">.</span>ToEntityCollection<span class="hl opt">(</span><span class="hl str">&quot;City_Custom_GetAllCities&quot;</span><span class="hl opt">,</span> <span class="hl kwa">null</span><span class="hl opt">);</span>
+        <span class="hl opt">}</span>
+    <span class="hl opt">}</span>
+<span class="hl opt">}</span>        </pre>
+        <p>Once the LayerCake Generator Process is finished the GetAllCities method can be called on client-side.</p>
+        <p>But this business implementation is quite bad because it retrieves all the records from the database each time the method is invoked.</p>
+        <p>The best practice is to use Cache Support (server-side / business layer).</p>
+        <pre class="hl"><span class="hl com">// Business | AppBusiness\LocalisationBusiness.cs</span>
+
+<span class="hl kwa">namespace</span> Com<span class="hl opt">.</span>Example<span class="hl opt">.</span>Labs<span class="hl opt">.</span><span class="text-red">Business</span>
+<span class="hl opt">{</span>
+    <span class="hl kwa">using</span> System<span class="hl opt">;</span>
+    <span class="hl kwa">using</span> System<span class="hl opt">.</span>Collections<span class="hl opt">.</span>Generic<span class="hl opt">;</span>
+    <span class="hl kwa">using</span> System<span class="hl opt">.</span>Linq<span class="hl opt">;</span>
+    <span class="hl kwa">using</span> System<span class="hl opt">.</span>Text<span class="hl opt">;</span>
+    <span class="hl kwa">using</span> System<span class="hl opt">.</span>Threading<span class="hl opt">.</span>Tasks<span class="hl opt">;</span>
+
+﻿    <span class="hl kwa">using</span> Com<span class="hl opt">.</span>Example<span class="hl opt">.</span>Labs<span class="hl opt">.</span>Core<span class="hl opt">;</span>
+    <span class="hl kwa">using</span> Com<span class="hl opt">.</span>Example<span class="hl opt">.</span>Labs<span class="hl opt">.</span>Crud<span class="hl opt">;</span>
+    <span class="hl kwa">using</span> Com<span class="hl opt">.</span>Example<span class="hl opt">.</span>Labs<span class="hl opt">.</span>Models<span class="hl opt">;</span>
+
+    <span class="hl opt">[</span><span class="hl kwd">BusinessClass</span><span class="hl opt">]</span>
+    <span class="hl kwa">public class</span> LocalisationBusiness <span class="hl opt">:</span> BusinessBase
+    <span class="hl opt">{</span>
+        <span class="hl ppc">#region [ Members ]</span>
+
+        <span class="hl kwa">private static readonly</span> <span class="hl kwb">object</span> _locker <span class="hl opt">=</span> <span class="hl kwa">new</span> <span class="hl kwb">object</span><span class="hl opt">();</span>
+
+        <span class="hl ppc">#endregion</span>
+
+        <span class="hl opt">[</span><span class="hl kwd">BusinessMethod</span><span class="hl opt">]</span>
+        <span class="hl kwa">public</span> TCollection<span class="hl opt">&lt;</span>City<span class="hl opt">&gt;</span> <span class="hl kwd">GetCityCollection</span><span class="hl opt">(</span>IUserContext userContext<span class="hl opt">)</span>
+        <span class="hl opt">{</span>
+            <span class="hl kwb">const string</span> cacheKey <span class="hl opt">=</span> <span class="hl str">&quot;LocalisationBusiness.GetCityCollection&quot;</span><span class="hl opt">;</span>
+
+            <span class="text-red">TCollection&lt;City&gt; cities = CacheServiceHelper.Current.Get&lt;TCollection&lt;City&gt;&gt;(cacheKey);</span>
+            <span class="hl kwa">if</span> <span class="hl opt">(</span>cities <span class="hl opt">==</span> <span class="hl kwa">null</span><span class="hl opt">)</span>
+            <span class="hl opt">{</span>
+                <span class="hl kwd">lock</span> <span class="hl opt">(</span>_locker<span class="hl opt">)</span> <span class="hl com">// concurrency</span>
+                <span class="hl opt">{</span>
+                    <span class="text-red">cities = CacheServiceHelper.Current.Get&lt;TCollection&lt;City&gt;&gt;(cacheKey);</span>
+                    <span class="hl kwa">if</span> <span class="hl opt">(</span>cities <span class="hl opt">==</span> <span class="hl kwa">null</span><span class="hl opt">)</span>
+                    <span class="hl opt">{</span>
+                        cities <span class="hl opt">=</span> <span class="hl kwa">new</span> TCollection<span class="hl opt">&lt;</span>City<span class="hl opt">&gt;();</span>
+
+                        <span class="hl kwa">using</span> <span class="hl opt">(</span><span class="hl kwa">var</span> et <span class="hl opt">=</span> <span class="hl kwa">new</span> <span class="hl kwd">ExecutionTracerService</span><span class="hl opt">())</span>
+                        <span class="hl kwa">using</span> <span class="hl opt">(</span><span class="hl kwa">var</span> db <span class="hl opt">=</span> <span class="hl kwa">new</span> <span class="hl kwd">CityCrud</span><span class="hl opt">(</span>userContext<span class="hl opt">))</span>
+                        <span class="hl opt">{</span>
+                            cities <span class="hl opt">=</span> db<span class="hl opt">.</span><span class="hl kwd">GetAllCities</span><span class="hl opt">();</span>
+                        <span class="hl opt">}</span>
+
+                        <span class="text-red">CacheServiceHelper.Current.Add(new CacheItem
+                        {
+                            Key = cacheKey,
+                            Data = cities,
+                            Expiration = DateTime.MaxValue
+                        });</span>
+                    <span class="hl opt">}</span>
+                <span class="hl opt">}</span>
+            <span class="hl opt">}</span>
+
+            <span class="hl kwa">return</span> cities<span class="hl opt">;</span>
+        <span class="hl opt">}</span>
+    <span class="hl opt">}</span>
+<span class="hl opt">}</span></pre>
+        <p>It is a really cool implementation thanks to the Cache Support.</p>
+        <p>But what about network performances? It may take several seconds to serialize/deserialize and transit data (37008 City entities) over the network (from server-side to client one).</p>
+        <p>It is time to use <span class="text-bold">DataBinMaker</span> (sources are available in the Tools folder).</p>
+        <p>Open and edit the <span class="text-bold">Net.LayerCake-Generator.DataBinMaker.exe.config</span> file.</p>
+        <pre class="hl"><span class="hl com">// Net.LayerCake-Generator.DataBinMaker.exe.config</span>
+
+<span class="hl kwa">&lt;?xml</span> <span class="hl kwb">version</span>=<span class="hl str">&quot;1.0&quot;</span> <span class="hl kwb">encoding</span>=<span class="hl str">&quot;utf-8&quot;</span> <span class="hl kwa">?&gt;</span>
+<span class="hl kwa">&lt;configuration&gt;</span>
+
+  <span class="hl kwa">&lt;configSections&gt;</span>
+    <span class="hl kwa">&lt;section</span>
+      <span class="hl kwb">name</span>=<span class="hl str">&quot;tableBinConfiguration&quot;</span>
+      <span class="hl kwb">type</span>=<span class="hl str">&quot;Net.LayerCake_Generator.DataBinMaker.TableBinSectionHandler, Net.LayerCake-Generator.DataBinMaker&quot;</span><span class="hl kwa">/&gt;</span>
+  <span class="hl kwa">&lt;/configSections&gt;</span>
+  
+  <span class="hl kwa">&lt;connectionStrings&gt;</span>
+    <span class="hl text-red">&lt;add
+      name=&quot;Default&quot;
+      connectionString=&quot;Data Source=localhost;Initial Catalog=Labs;Integrated Security=SSPI;&quot;/&gt;</span>
+  <span class="hl kwa">&lt;/connectionStrings&gt;</span>
+
+  <span class="hl kwa">&lt;appSettings&gt;</span>
+
+    <span class="hl slc">&lt;!-- Relative or absolute path where are generated the binary files --&gt;</span>
+    <span class="hl kwa">&lt;add</span>
+      <span class="hl kwb">key</span>=<span class="hl str">&quot;DataBinMaker.OutputBinPath&quot;</span>
+      <span class="hl kwb">value</span>=<span class="hl str">&quot;BIN&quot;</span> <span class="hl kwa">/&gt;</span>
+    
+    <span class="hl slc">&lt;!-- Value indicating whether the GZIP compression is used  --&gt;</span>
+    <span class="hl kwa">&lt;add</span>
+      <span class="hl kwb">key</span>=<span class="hl str">&quot;DataBinMaker.WithCompression&quot;</span>
+      <span class="hl kwb">value</span>=<span class="hl str">&quot;true&quot;</span> <span class="hl kwa">/&gt;</span>
+    
+    <span class="hl slc">&lt;!-- Value indicating whether the created BINs are checked after creation --&gt;</span>
+    <span class="hl kwa">&lt;add</span>
+      <span class="hl kwb">key</span>=<span class="hl str">&quot;DataBinMaker.WithBinChecking&quot;</span>
+      <span class="hl kwb">value</span>=<span class="hl str">&quot;true&quot;</span> <span class="hl kwa">/&gt;</span>
+    
+  <span class="hl kwa">&lt;/appSettings&gt;</span>
+
+  <span class="hl kwa">&lt;tableBinConfiguration&gt;</span>
+    <span class="hl kwa">&lt;tables&gt;</span>
+
+      <span class="hl slc">&lt;!-- Will create a Category.bin file containing all the Category records (using the 'Default' connection string) --&gt;
+      &lt;!--
+      &lt;table
+        name=&quot;Category&quot;
+        connectionStringName=&quot;Default&quot; /&gt;
+      --&gt;</span>
+
+      <span class="hl slc">&lt;!-- Will create a City.bin file containing the City records (+Departments +Countries) (using the 'Default' connection string) --&gt;</span>
+      <span class="hl text-red">&lt;table
+        name=&quot;City&quot;
+        connectionStringName=&quot;Default&quot;
+        request=&quot;SELECT [City].*, [Department].*, [Region].* FROM [City] INNER JOIN [Department] ON [Department].[Department_Id] = [City].[City_IdDepartment] INNER JOIN [Region] ON [Region].[Region_Id] = [Department].[Department_IdRegion]&quot; /&gt;</span>
+
+    <span class="hl kwa">&lt;/tables&gt;</span>
+  <span class="hl kwa">&lt;/tableBinConfiguration&gt;</span>
+  
+<span class="hl kwa">&lt;/configuration&gt;</span></pre>
+        <p>Execute DataBinMaker to run the process.</p>
+        <img src="../ScreenShots/DataBinSupport-03.png" title="Illustration" alt="Illustration" />
+        <p>The <span class="text-bold">City.bin</span> file is created. This file contains all the compressed data (DataTable inner object) for the specified SQL request.</p>
+        <p>Now we can write an optimized implementation <span class="text-bold">on client-side</span> using Cache and DataBin supports.</p>
+        <pre class="hl"><span class="hl com">// Client-side | Localisation.cs</span>
+        
+<span class="hl kwa">public class</span> Localisation
+<span class="hl opt">{</span>
+    <span class="hl ppc">#region [ Members ]</span>
+
+    <span class="hl kwa">private static readonly</span> <span class="hl kwb">object</span> _locker <span class="hl opt">=</span> <span class="hl kwa">new</span> <span class="hl kwb">object</span><span class="hl opt">();</span>
+
+    <span class="hl ppc">#endregion</span>
+
+    <span class="hl kwa">public</span> TCollection<span class="hl opt">&lt;</span>City<span class="hl opt">&gt;</span> <span class="hl kwd">GetCityCollection</span><span class="hl opt">(</span>IUserContext userContext<span class="hl opt">)</span>
+    <span class="hl opt">{</span>
+        <span class="hl kwb">const string</span> cacheKey <span class="hl opt">=</span> <span class="hl str">&quot;Localisation.GetCityCollection&quot;</span><span class="hl opt">;</span>
+        <span class="hl kwb">const string</span> binRelativePath <span class="hl opt">= &#64;</span><span class="hl str">&quot;App_Data\DataBinaries\City.bin&quot;</span><span class="hl opt">;</span>
+
+        <span class="hl slc">// 1. Try to get data from local cache...</span>
+
+        <span class="hl kwa">var</span> cities <span class="hl opt">=</span> CacheServiceHelper<span class="hl opt">.</span>Current<span class="hl opt">.</span><span class="hl kwd">Get</span><span class="hl opt">&lt;</span>TCollection<span class="hl opt">&lt;</span>City<span class="hl opt">&gt;</span><span class="hl opt">&gt;</span><span class="hl opt">(</span>cacheKey<span class="hl opt">)</span><span class="hl opt">;</span>
+        <span class="hl kwa">if</span> <span class="hl opt">(</span>cities <span class="hl opt">==</span> <span class="hl kwa">null</span><span class="hl opt">)</span>
+        <span class="hl opt">{</span>
+            <span class="hl kwd">lock</span> <span class="hl opt">(</span>_locker<span class="hl opt">)</span>
+            <span class="hl opt">{</span>
+                cities <span class="hl opt">=</span> CacheServiceHelper<span class="hl opt">.</span>Current<span class="hl opt">.</span><span class="hl kwd">Get</span><span class="hl opt">&lt;</span>TCollection<span class="hl opt">&lt;</span>City<span class="hl opt">&gt;</span><span class="hl opt">&gt;</span><span class="hl opt">(</span>cacheKey<span class="hl opt">)</span> as TCollection<span class="hl opt">&lt;</span>City<span class="hl opt">&gt;;</span>
+                <span class="hl kwa">if</span> <span class="hl opt">(</span>cities <span class="hl opt">==</span> <span class="hl kwa">null</span><span class="hl opt">)</span>
+                <span class="hl opt">{</span>
+                    <span class="hl slc">// 2. Cache empty -&gt; Try to get data from binary file...</span>
+
+                    cities <span class="hl opt">=</span> <span class="hl kwa">new</span> TCollection<span class="hl opt">&lt;</span>City<span class="hl opt">&gt;();</span>
+
+                    <span class="hl kwa">using</span> <span class="hl opt">(</span><span class="hl kwa">var</span> et <span class="hl opt">=</span> <span class="hl kwa">new</span> <span class="hl kwd">ExecutionTracerService</span><span class="hl opt">())</span>
+                    <span class="hl opt">{</span>
+                        <span class="text-red">string binPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, binRelativePath);
+                        if (File.Exists(binPath))
+                        {
+                            DataTable dt = SerializerHelper.ToObject&lt;DataTable&gt;(binPath, isCompressed: true /* because DataBinMaker.WithCompression = true */);
+                            foreach (DataRow row in dt.Rows)
+                            {
+                                City city = new City();
+                                city.DeepMap(row);
+
+                                cities.Add(city);
+                            }
+                        }</span>
+
+                        <span class="hl kwa">if</span> <span class="hl opt">(</span>cities<span class="hl opt">.</span><span class="hl kwd">IsNullOrEmpty</span><span class="hl opt">())</span>
+                        <span class="hl opt">{</span>
+                            <span class="hl slc">// 3. No binary file -&gt; Try to get data from WCF call (can take too many times!)...</span>
+
+                            <span class="hl kwa">using</span> <span class="hl opt">(</span><span class="hl kwa">var</span> service <span class="hl opt">=</span> <span class="hl kwa">new</span> ServiceProxy<span class="hl opt">&lt;</span>ILocalisationService<span class="hl opt">&gt;())</span>
+                            <span class="hl opt">{</span>
+                                cities <span class="hl opt">=</span> service<span class="hl opt">.</span>Proxy<span class="hl opt">.</span><span class="hl kwd">GetCityCollection</span><span class="hl opt">(</span>userContext<span class="hl opt">);</span>
+                            <span class="hl opt">}</span>
+                        <span class="hl opt">}</span>
+                    <span class="hl opt">}</span>
+
+                    <span class="hl slc">// 4. Store data in local cache for next calls...</span>
+
+                    CacheServiceHelper<span class="hl opt">.</span>Current<span class="hl opt">.</span><span class="hl kwd">Add</span><span class="hl opt">(</span><span class="hl kwa">new</span> CacheItem
+                    <span class="hl opt">{</span>
+                        Key <span class="hl opt">=</span> cacheKey<span class="hl opt">,</span>
+                        Data <span class="hl opt">=</span> cities<span class="hl opt">,</span>
+                        Expiration <span class="hl opt">=</span> DateTime<span class="hl opt">.</span>MaxValue
+                    <span class="hl opt">});</span>
+                <span class="hl opt">}</span>
+            <span class="hl opt">}</span>
+        <span class="hl opt">}</span>
+
+        <span class="hl kwa">return</span> cities<span class="hl opt">;</span>
+    <span class="hl opt">}</span>
+<span class="hl opt">}</span></pre>
+        <p>No database access. No WCF call (and no serialization/deserialization). Great!</p>
+        <p>Finally we have</p>
+        <ul>
+            <li>A GetCityCollection implementation on server-side (with Cache Support)</li>
+            <li>A GetCityCollection implementation on client-side (with Cache &amp; DataBin supports)</li>
+        </ul>
+		<p>Here a sample to generate and read binary files by code</p>
+		<pre class="hl">﻿TCollection<span class="hl opt">&lt;</span>City<span class="hl opt">&gt;</span> cities <span class="hl opt">= ...</span>
+
+<span class="hl kwa">var</span> dataBinService <span class="hl opt">=</span> <span class="hl kwa">new</span> <span class="hl kwd">DataBinService</span><span class="hl opt">();</span>
+
+<span class="hl kwb">string</span> binPath <span class="hl opt">=</span> Path<span class="hl opt">.</span><span class="hl kwd">Combine</span><span class="hl opt">(</span>PathHelper<span class="hl opt">.</span><span class="hl kwd">GetTempPath</span><span class="hl opt">(</span>withCreation<span class="hl opt">:</span> <span class="hl kwa">true</span><span class="hl opt">),</span> <span class="hl str">&quot;City.zip.bin&quot;</span><span class="hl opt">);</span>
+
+<span class="hl slc">// Create the compressed binary file</span>
+<span class="text-red">dataBinService.GenerateBinFilebinPath, cities, withCompression: true);</span>
+
+<span class="hl slc">// Extract data from the compressed binary file</span>
+<span class="text-red">cities = dataBinService.GetDataFromBinFile&lt;City&gt;(binPath, isCompressed: true);</span></pre>
+	</section>
+</body>
+</html>

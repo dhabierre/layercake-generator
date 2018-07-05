@@ -1,0 +1,393 @@
+﻿<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <title>LCG - 05 - Business Layer</title>
+    <link rel="stylesheet" type="text/css" href="../Styles/Highlight.css">
+    <link rel="stylesheet" type="text/css" href="../Styles/Styles.css">
+</head>
+<body>
+    <h1>Lab 05 - Business Layer</h1>
+    <section>
+        <p>Duration: <span class="text-bold">~20mins</span></p>
+    </section>
+    <section>
+        <h2>1. Implementation</h2>
+        <p>The Business classes are used to define all the business methods (at server-side) implemented by the developers.</p>
+        <p>The Business layer can use the predefined Crud methods (Search, Save, etc.). However it is recommanded to use stored procedures for advanced requests (see in a next lab).</p>
+        <ul>
+            <li>Business classes (with <span class="text-bold">BusinessClass</span> attribute) are automatically exposed on Service layer and client-side through WCF</li>
+            <li>Business methods (with <span class="text-bold">BusinessMethod</span> attribute) are automatically exposed on Service layer and client-side through WCF using the ServiceProxy class</li>
+        </ul>
+        <div class="box warning">
+            <h3>Business Layer</h3>
+            <ul>
+                <li>Business classes must have the <span class="text-bold">BusinessClass</span> attribute</li>
+                <li>Business methods must have the <span class="text-bold">BusinessMethod</span> attribute</li>
+                <li>Business methods must have the <span class="text-bold">IUserContext</span> parameter</li>
+                <li>Business layer only uses the <span class="text-bold">Crud Layer</span> (no dependency with the Services)</li>
+            </ul>
+        </div>
+        <p>In this Lab we are going to add 2 new Client methods</p>
+        <ul>
+            <li><span class="text-bold">GetClientByRef()</span> - Retrieve a client using the Ref value</li>
+            <li><span class="text-bold">GetClientWithCommands()</span> - Retrieve a client with all the associated commands</li>
+        </ul>
+        <p class="action">Open the <span class="text-bold">Com.Example.Labs.Business</span> project.</p>
+        <p class="action">Open the <span class="text-bold">ClientBusiness.custom.cs</span> file and add the two following methods (and <span class="text-bold">System.Linq</span> namespace).</p>
+        <h3>A. GetClientByRef()</h3>
+        <pre class="hl"><span class="text-red text-bold">[BusinessMethod]</span>
+<span class="hl kwa">public</span> Client <span class="hl kwd">GetClientByRef</span><span class="hl opt">(</span>IUserContext userContext<span class="hl opt">,</span> <span class="hl kwb">int</span> clientRef<span class="hl opt">)</span>
+<span class="hl opt">{</span>
+    Client client <span class="hl opt">=</span> <span class="hl kwa">null</span><span class="hl opt">;</span>
+
+    <span class="hl kwa">var</span> options <span class="hl opt">=</span> <span class="hl kwa">new</span> <span class="hl kwd">SearchOptions</span><span class="hl opt">();</span>
+    options<span class="hl opt">.</span>Filters<span class="hl opt">.</span><span class="hl kwd">Add</span><span class="hl opt">(</span>Client<span class="hl opt">.</span>ColumnNames<span class="hl opt">.</span>Ref<span class="hl opt">,</span> FilterOperator<span class="hl opt">.</span>Equals<span class="hl opt">,</span> clientRef<span class="hl opt">);</span> <span class="hl slc">// search filter on Ref column</span>
+
+    <span class="hl kwa">using</span> <span class="hl opt">(</span><span class="hl kwa">var</span> et <span class="hl opt">=</span> <span class="hl kwa">new</span> <span class="hl kwd">ExecutionTracerService</span><span class="hl opt">())</span> <span class="hl slc">// track time execution of GetClientByRef() method</span>
+    <span class="hl kwa">using</span> <span class="hl opt">(</span><span class="hl kwa">var</span> db <span class="hl opt">=</span> <span class="hl kwa">new</span> <span class="hl kwd">ClientCrud</span><span class="hl opt">(</span>userContext<span class="hl opt">))</span> <span class="hl slc">// access to the data layer</span>
+    <span class="hl opt">{</span>
+        var clients <span class="hl opt">=</span> db<span class="hl opt">.</span><span class="hl kwd">Search</span><span class="hl opt">(</span><span class="hl kwa">ref</span> options<span class="hl opt">);</span>
+        <span class="hl kwa">if</span> <span class="hl opt">(!</span>clients<span class="hl opt">.</span><span class="hl kwd">IsNullOrEmpty</span><span class="hl opt">())</span>
+        <span class="hl opt">{</span>
+            client <span class="hl opt">=</span> clients[0]<span class="hl opt">;</span>
+        <span class="hl opt">}</span>
+    <span class="hl opt">}</span>
+
+    <span class="hl kwa">return</span> client<span class="hl opt">;</span>
+<span class="hl opt">}</span></pre>
+        <h3>B. GetClientWithCommands()</h3>
+        <pre class="hl"><span class="text-red text-bold">[BusinessMethod]</span>
+<span class="hl kwa">public</span> Client <span class="hl kwd">GetClientWithCommands</span><span class="hl opt">(</span>IUserContext userContext<span class="hl opt">,</span> <span class="hl kwb">int</span> clientRef<span class="hl opt">,</span> <span class="hl kwb">bool</span> withProducts <span class="hl opt">=</span> <span class="hl kwa">false</span><span class="hl opt">)</span>
+<span class="hl opt">{</span>
+    <span class="hl kwa">var</span> client <span class="hl opt">=</span> <span class="hl kwa">this</span><span class="hl opt">.</span><span class="hl kwd">GetClientByRef</span><span class="hl opt">(</span>userContext<span class="hl opt">,</span> clientRef<span class="hl opt">);</span>
+    <span class="hl kwa">if</span> <span class="hl opt">(</span>client <span class="hl opt">!=</span> <span class="hl kwa">null</span><span class="hl opt">)</span>
+    <span class="hl opt">{</span>
+        <span class="hl kwa">using</span> <span class="hl opt">(</span><span class="hl kwa">var</span> et <span class="hl opt">=</span> <span class="hl kwa">new</span> <span class="hl kwd">ExecutionTracerService</span><span class="hl opt">())</span>
+        <span class="hl kwa">using</span> <span class="hl opt">(</span><span class="hl kwa">var</span> dbClient <span class="hl opt">=</span> <span class="hl kwa">new</span> <span class="hl kwd">ClientCrud</span><span class="hl opt">(</span>userContext<span class="hl opt">))</span>
+        <span class="hl kwa">using</span> <span class="hl opt">(</span><span class="hl kwa">var</span> dbCommand <span class="hl opt">=</span> <span class="hl kwa">new</span> <span class="hl kwd">CommandCrud</span><span class="hl opt">(</span>userContext<span class="hl opt">))</span>
+        <span class="hl opt">{</span>
+            dbClient<span class="hl opt">.</span><span class="hl kwd">LoadCommandCollection</span><span class="hl opt">(</span><span class="hl kwa">ref</span> client<span class="hl opt">);</span> <span class="hl slc">// retrieve all the commands of the client (-&gt; client.CommandCollection)</span>
+
+            client<span class="hl opt">.</span>CommandCollection<span class="hl opt">.</span><span class="hl kwd">AsParallel</span><span class="hl opt">().</span><span class="hl kwd">AsOrdered</span><span class="hl opt">().</span><span class="hl kwd">ForEach</span><span class="hl opt">(</span>command <span class="hl opt">=&gt;</span> <span class="hl slc">// .AsParallel() -&gt; PLINQ feature</span>
+            <span class="hl opt">{</span>
+                var currentCommand <span class="hl opt">=</span> command<span class="hl opt">;</span>
+                dbCommand<span class="hl opt">.</span><span class="hl kwd">LoadCommandStatus</span><span class="hl opt">(</span><span class="hl kwa">ref</span> currentCommand<span class="hl opt">);</span>
+
+                <span class="hl kwa">if</span> <span class="hl opt">(</span>withProducts<span class="hl opt">)</span> <span class="hl slc">// retrieve commandlines and products</span>
+                <span class="hl opt">{</span>
+                    dbCommand<span class="hl opt">.</span><span class="hl kwd">LoadCommandLineCollection</span><span class="hl opt">(</span><span class="hl kwa">ref</span> currentCommand<span class="hl opt">);</span>
+
+                    <span class="hl kwa">using</span> <span class="hl opt">(</span><span class="hl kwa">var</span> dbCommandLine <span class="hl opt">=</span> <span class="hl kwa">new</span> <span class="hl kwd">CommandLineCrud</span><span class="hl opt">(</span>userContext<span class="hl opt">))</span>
+                    <span class="hl opt">{</span>
+                        currentCommand<span class="hl opt">.</span>CommandLineCollection<span class="hl opt">.</span><span class="hl kwd">AsParallel</span><span class="hl opt">().</span><span class="hl kwd">AsOrdered</span><span class="hl opt">().</span><span class="hl kwd">ForEach</span><span class="hl opt">(</span>commandLine <span class="hl opt">=&gt;</span>
+                        <span class="hl opt">{</span>
+                            var currentCommandLine <span class="hl opt">=</span> commandLine<span class="hl opt">;</span>
+                            dbCommandLine<span class="hl opt">.</span><span class="hl kwd">LoadProduct</span><span class="hl opt">(</span><span class="hl kwa">ref</span> currentCommandLine<span class="hl opt">);</span>
+                        <span class="hl opt">});</span>
+                    <span class="hl opt">}</span>
+                <span class="hl opt">}</span>
+            <span class="hl opt">});</span>
+        <span class="hl opt">}</span>
+    <span class="hl opt">}</span>
+
+    <span class="hl kwa">return</span> client<span class="hl opt">;</span>
+<span class="hl opt">}</span></pre>
+        <div class="box important">
+            <h3>BusinessClass &amp; BusinessMethod Attributes</h3>
+            <div class="box-content">If these attributes are not set, the contract and its implementation should be written manually. It can be useful when you need to write our own Contracts/Services implementations.</div>
+        </div>
+        <p class="action">Compile the <span class="text-bold">Com.Example.Labs.Business</span> project (this step is required before executing LayerCake Generator).</p>
+        <p class="action">Execute <span class="text-bold">LayerCake Generator</span>.</p>
+        <img src="../ScreenShots/05-01.png" title="Illustration" alt="Illustration" />
+        <p>Note: because we are working on business layer the With SQL Procedure Integration option can be unchecked.</p>
+        <p>The business methods have been integrated to the Services &amp; WCF layers and can be called from the clients!</p>
+        <img src="../ScreenShots/05-02.png" title="Illustration" alt="Illustration" />
+        <h2>2. Client-side</h2>
+        <pre class="hl"><span class="hl kwa">using</span> <span class="hl opt">(</span><span class="hl kwa">var</span> service <span class="hl opt">=</span> <span class="hl kwa">new</span> ServiceProxy<span class="hl opt">&lt;</span>IClientService<span class="hl opt">&gt;())</span>
+<span class="hl opt">{</span>
+    <span class="highlight-text"><span class="hl kwa">var</span> client = service.Proxy.GetClientWithCommands(ClientContext.Anonymous, clientRef: 1234, withProducts: true);</span>
+    <span class="hl kwa">if</span> <span class="hl opt">(</span>client <span class="hl opt">!=</span> <span class="hl kwa">null</span><span class="hl opt">)</span>
+    <span class="hl opt">{</span>
+        Console<span class="hl opt">.</span><span class="hl kwd">WriteLine</span><span class="hl opt">(</span><span class="hl str">&quot;{0} {1} ({2}) - {3}&quot;</span><span class="hl opt">,</span> client<span class="hl opt">.</span>Firstname<span class="hl opt">,</span> client<span class="hl opt">.</span>Lastname<span class="hl opt">,</span> client<span class="hl opt">.</span>Ref<span class="hl opt">,</span> client<span class="hl opt">.</span>Email<span class="hl opt">);</span>
+        Console<span class="hl opt">.</span><span class="hl kwd">WriteLine</span><span class="hl opt">(</span><span class="hl str">&quot;{0} Command(s)&quot;</span><span class="hl opt">,</span> client<span class="hl opt">.</span>CommandCollection<span class="hl opt">.</span>Count<span class="hl opt">);</span>
+
+        client<span class="hl opt">.</span>CommandCollection<span class="hl opt">.</span><span class="hl kwd">ForEach</span><span class="hl opt">(</span>command <span class="hl opt">=&gt;</span>
+        <span class="hl opt">{</span>
+            command<span class="hl opt">.</span>CommandLineCollection<span class="hl opt">.</span><span class="hl kwd">ForEach</span><span class="hl opt">(</span>commandLine <span class="hl opt">=&gt;</span>
+            <span class="hl opt">{</span>
+                Console<span class="hl opt">.</span><span class="hl kwd">WriteLine</span><span class="hl opt">(</span><span class="hl str">&quot; -&gt; {0} ({1}e)&quot;</span><span class="hl opt">,</span> commandLine<span class="hl opt">.</span>Product<span class="hl opt">.</span>Name<span class="hl opt">,</span> commandLine<span class="hl opt">.</span>Product<span class="hl opt">.</span>Price<span class="hl opt">);</span>
+            <span class="hl opt">});</span>
+        <span class="hl opt">});</span>
+    <span class="hl opt">}</span>
+<span class="hl opt">}</span></pre>
+		<p>Note: the ForEach extension method checks whether the collection is null before enumerate the elements.</p>
+        <p>Full code for test purposes</p>
+        <pre class="hl"><span class="hl kwa">namespace</span> Com<span class="hl opt">.</span>Example<span class="hl opt">.</span>Labs<span class="hl opt">.</span>FirstStepsConsole
+<span class="hl opt">{</span>
+    <span class="hl kwa">using</span> Com<span class="hl opt">.</span>Example<span class="hl opt">.</span>Labs<span class="hl opt">.</span>ClientCore<span class="hl opt">;</span>
+    <span class="hl kwa">using</span> Com<span class="hl opt">.</span>Example<span class="hl opt">.</span>Labs<span class="hl opt">.</span>Contracts<span class="hl opt">;</span>
+    <span class="hl kwa">using</span> Com<span class="hl opt">.</span>Example<span class="hl opt">.</span>Labs<span class="hl opt">.</span>Core<span class="hl opt">;</span>
+    <span class="hl kwa">using</span> Com<span class="hl opt">.</span>Example<span class="hl opt">.</span>Labs<span class="hl opt">.</span>Models<span class="hl opt">;</span>
+
+    <span class="hl kwa">using</span> System<span class="hl opt">;</span>
+    <span class="hl kwa">using</span> System<span class="hl opt">.</span>Collections<span class="hl opt">.</span>Generic<span class="hl opt">;</span>
+    <span class="hl kwa">using</span> System<span class="hl opt">.</span>Linq<span class="hl opt">;</span>
+
+    <span class="hl kwa">class</span> Program
+    <span class="hl opt">{</span>
+        <span class="hl kwa">private static</span> IUserContext _userContext <span class="hl opt">=</span> ClientContext<span class="hl opt">.</span>Anonymous<span class="hl opt">;</span>
+		
+        <span class="hl kwa">static</span> <span class="hl kwb">void</span> <span class="hl kwd">Main</span><span class="hl opt">(</span><span class="hl kwb">string</span><span class="hl opt">[]</span> args<span class="hl opt">)</span>
+        <span class="hl opt">{</span>
+            <span class="hl kwd">PurgeData</span><span class="hl opt">();</span>
+            <span class="hl kwd">CreateData</span><span class="hl opt">();</span>
+
+            <span class="hl kwa">using</span> <span class="hl opt">(</span><span class="hl kwa">var</span> service <span class="hl opt">=</span> <span class="hl kwa">new</span> ServiceProxy<span class="hl opt">&lt;</span>IClientService<span class="hl opt">&gt;())</span>
+            <span class="hl opt">{</span>
+                <span class="highlight-text"><span class="hl kwa">var</span> client = service.Proxy.GetClientWithCommands(_userContext, clientRef: 1234, withProducts: true);</span>
+                <span class="hl kwa">if</span> <span class="hl opt">(</span>client <span class="hl opt">!=</span> <span class="hl kwa">null</span><span class="hl opt">)</span>
+                <span class="hl opt">{</span>
+                    Console<span class="hl opt">.</span><span class="hl kwd">WriteLine</span><span class="hl opt">(</span><span class="hl str">&quot;{0} {1} ({2}) - {3}&quot;</span><span class="hl opt">,</span> client<span class="hl opt">.</span>Firstname<span class="hl opt">,</span> client<span class="hl opt">.</span>Lastname<span class="hl opt">,</span> client<span class="hl opt">.</span>Ref<span class="hl opt">,</span> client<span class="hl opt">.</span>Email<span class="hl opt">);</span>
+                    Console<span class="hl opt">.</span><span class="hl kwd">WriteLine</span><span class="hl opt">(</span><span class="hl str">&quot;{0} Command(s)&quot;</span><span class="hl opt">,</span> client<span class="hl opt">.</span>CommandCollection<span class="hl opt">.</span>Count<span class="hl opt">);</span>
+
+                    client<span class="hl opt">.</span>CommandCollection<span class="hl opt">.</span><span class="hl kwd">ForEach</span><span class="hl opt">(</span>command <span class="hl opt">=&gt;</span>
+                    <span class="hl opt">{</span>
+                        command<span class="hl opt">.</span>CommandLineCollection<span class="hl opt">.</span><span class="hl kwd">ForEach</span><span class="hl opt">(</span>commandLine <span class="hl opt">=&gt;</span>
+                        <span class="hl opt">{</span>
+                            Console<span class="hl opt">.</span><span class="hl kwd">WriteLine</span><span class="hl opt">(</span><span class="hl str">&quot; -&gt; {0} ({1}e)&quot;</span><span class="hl opt">,</span> commandLine<span class="hl opt">.</span>Product<span class="hl opt">.</span>Name<span class="hl opt">,</span> commandLine<span class="hl opt">.</span>Product<span class="hl opt">.</span>Price<span class="hl opt">);</span>
+                        <span class="hl opt">});</span>
+                    <span class="hl opt">});</span>
+                <span class="hl opt">}</span>
+            <span class="hl opt">}</span>
+
+            Console<span class="hl opt">.</span><span class="hl kwd">ReadLine</span><span class="hl opt">();</span>
+        <span class="hl opt">}</span>
+
+        <span class="hl slc">// Store the category in database</span>
+        <span class="hl kwa">private static</span> <span class="hl kwb">bool</span> <span class="hl kwd">CreateCategory</span><span class="hl opt">(</span>IUserContext userContext<span class="hl opt">,</span> <span class="hl kwa">ref</span> Category category<span class="hl opt">)</span>
+        <span class="hl opt">{</span>
+            IList<span class="hl opt">&lt;</span>TranslationEnum<span class="hl opt">&gt;</span> errors<span class="hl opt">;</span>
+
+            <span class="hl kwa">if</span> <span class="hl opt">(</span>category <span class="hl opt">!=</span> <span class="hl kwa">null</span> <span class="hl opt">&amp;&amp;</span> category<span class="hl opt">.</span><span class="hl kwd">IsValid</span><span class="hl opt">(</span>out errors<span class="hl opt">))</span>
+                <span class="hl kwa">using</span> <span class="hl opt">(</span><span class="hl kwa">var</span> service <span class="hl opt">=</span> <span class="hl kwa">new</span> ServiceProxy<span class="hl opt">&lt;</span>ICategoryService<span class="hl opt">&gt;())</span>
+                    <span class="hl kwa">return</span> service<span class="hl opt">.</span>Proxy<span class="hl opt">.</span><span class="hl kwd">Save</span><span class="hl opt">(</span>userContext<span class="hl opt">,</span> <span class="hl kwa">ref</span> category<span class="hl opt">) &gt;</span> <span class="hl num">0</span><span class="hl opt">;</span>
+
+            <span class="hl kwa">return false</span><span class="hl opt">;</span>
+        <span class="hl opt">}</span>
+
+        <span class="hl slc">// Store the product in database</span>
+        <span class="hl kwa">private static</span> <span class="hl kwb">bool</span> <span class="hl kwd">CreateProduct</span><span class="hl opt">(</span>IUserContext userContext<span class="hl opt">,</span> <span class="hl kwa">ref</span> Product product<span class="hl opt">)</span>
+        <span class="hl opt">{</span>
+            IList<span class="hl opt">&lt;</span>TranslationEnum<span class="hl opt">&gt;</span> errors<span class="hl opt">;</span>
+
+            <span class="hl kwa">if</span> <span class="hl opt">(</span>product <span class="hl opt">!=</span> <span class="hl kwa">null</span> <span class="hl opt">&amp;&amp;</span> product<span class="hl opt">.</span><span class="hl kwd">IsValid</span><span class="hl opt">(</span>out errors<span class="hl opt">))</span>
+                <span class="hl kwa">using</span> <span class="hl opt">(</span><span class="hl kwa">var</span> service <span class="hl opt">=</span> <span class="hl kwa">new</span> ServiceProxy<span class="hl opt">&lt;</span>IProductService<span class="hl opt">&gt;())</span>
+                    <span class="hl kwa">return</span> service<span class="hl opt">.</span>Proxy<span class="hl opt">.</span><span class="hl kwd">Save</span><span class="hl opt">(</span>userContext<span class="hl opt">,</span> <span class="hl kwa">ref</span> product<span class="hl opt">) &gt;</span> <span class="hl num">0</span><span class="hl opt">;</span>
+
+            <span class="hl kwa">return false</span><span class="hl opt">;</span>
+        <span class="hl opt">}</span>
+
+        <span class="hl slc">// Store the client in database</span>
+        <span class="hl kwa">private static</span> <span class="hl kwb">bool</span> <span class="hl kwd">CreateClient</span><span class="hl opt">(</span>IUserContext userContext<span class="hl opt">,</span> <span class="hl kwa">ref</span> Client client<span class="hl opt">)</span>
+        <span class="hl opt">{</span>
+            IList<span class="hl opt">&lt;</span>TranslationEnum<span class="hl opt">&gt;</span> errors<span class="hl opt">;</span>
+
+            <span class="hl kwa">if</span> <span class="hl opt">(</span>client <span class="hl opt">!=</span> <span class="hl kwa">null</span> <span class="hl opt">&amp;&amp;</span> client<span class="hl opt">.</span><span class="hl kwd">IsValid</span><span class="hl opt">(</span>out errors<span class="hl opt">))</span>
+                <span class="hl kwa">using</span> <span class="hl opt">(</span><span class="hl kwa">var</span> service <span class="hl opt">=</span> <span class="hl kwa">new</span> ServiceProxy<span class="hl opt">&lt;</span>IClientService<span class="hl opt">&gt;())</span>
+                    <span class="hl kwa">return</span> service<span class="hl opt">.</span>Proxy<span class="hl opt">.</span><span class="hl kwd">Save</span><span class="hl opt">(</span>userContext<span class="hl opt">,</span> <span class="hl kwa">ref</span> client<span class="hl opt">) &gt;</span> <span class="hl num">0</span><span class="hl opt">;</span>
+
+            <span class="hl kwa">return false</span><span class="hl opt">;</span>
+        <span class="hl opt">}</span>
+
+        <span class="hl slc">// Store the country in database</span>
+        <span class="hl kwa">private static</span> <span class="hl kwb">bool</span> <span class="hl kwd">CreateCountry</span><span class="hl opt">(</span>IUserContext userContext<span class="hl opt">,</span> <span class="hl kwa">ref</span> Country country<span class="hl opt">)</span>
+        <span class="hl opt">{</span>
+            IList<span class="hl opt">&lt;</span>TranslationEnum<span class="hl opt">&gt;</span> errors<span class="hl opt">;</span>
+
+            <span class="hl kwa">if</span> <span class="hl opt">(</span>country <span class="hl opt">!=</span> <span class="hl kwa">null</span> <span class="hl opt">&amp;&amp;</span> country<span class="hl opt">.</span><span class="hl kwd">IsValid</span><span class="hl opt">(</span>out errors<span class="hl opt">))</span>
+                <span class="hl kwa">using</span> <span class="hl opt">(</span><span class="hl kwa">var</span> service <span class="hl opt">=</span> <span class="hl kwa">new</span> ServiceProxy<span class="hl opt">&lt;</span>ICountryService<span class="hl opt">&gt;())</span>
+                    <span class="hl kwa">return</span> service<span class="hl opt">.</span>Proxy<span class="hl opt">.</span><span class="hl kwd">Save</span><span class="hl opt">(</span>userContext<span class="hl opt">,</span> <span class="hl kwa">ref</span> country<span class="hl opt">) &gt;</span> <span class="hl num">0</span><span class="hl opt">;</span>
+
+            <span class="hl kwa">return false</span><span class="hl opt">;</span>
+        <span class="hl opt">}</span>
+
+        <span class="hl slc">// Store the commandStatus in database</span>
+        <span class="hl kwa">private static</span> <span class="hl kwb">bool</span> <span class="hl kwd">CreateCommandStatus</span><span class="hl opt">(</span>IUserContext userContext<span class="hl opt">,</span> <span class="hl kwa">ref</span> CommandStatus commandStatus<span class="hl opt">)</span>
+        <span class="hl opt">{</span>
+            IList<span class="hl opt">&lt;</span>TranslationEnum<span class="hl opt">&gt;</span> errors<span class="hl opt">;</span>
+
+            <span class="hl kwa">if</span> <span class="hl opt">(</span>commandStatus <span class="hl opt">!=</span> <span class="hl kwa">null</span> <span class="hl opt">&amp;&amp;</span> commandStatus<span class="hl opt">.</span><span class="hl kwd">IsValid</span><span class="hl opt">(</span>out errors<span class="hl opt">))</span>
+                <span class="hl kwa">using</span> <span class="hl opt">(</span><span class="hl kwa">var</span> service <span class="hl opt">=</span> <span class="hl kwa">new</span> ServiceProxy<span class="hl opt">&lt;</span>ICommandStatusService<span class="hl opt">&gt;())</span>
+                    <span class="hl kwa">return</span> service<span class="hl opt">.</span>Proxy<span class="hl opt">.</span><span class="hl kwd">Save</span><span class="hl opt">(</span>userContext<span class="hl opt">,</span> <span class="hl kwa">ref</span> commandStatus<span class="hl opt">) &gt;</span> <span class="hl num">0</span><span class="hl opt">;</span>
+
+            <span class="hl kwa">return false</span><span class="hl opt">;</span>
+        <span class="hl opt">}</span>
+
+        <span class="hl slc">// Create data for tests</span>
+        <span class="hl kwa">private static</span> <span class="hl kwb">void</span> <span class="hl kwd">CreateData</span><span class="hl opt">()</span>
+        <span class="hl opt">{</span>
+            <span class="hl slc">// 1. Create root Catgory: Smartphones</span>
+            <span class="hl slc">// ----------------------------------------------------------------</span>
+
+            var rootCategory <span class="hl opt">=</span> <span class="hl kwa">new</span> Category <span class="hl opt">{</span> CodeRef <span class="hl opt">=</span> <span class="hl str">&quot;Smartphones&quot;</span> <span class="hl opt">};</span>
+
+            rootCategory<span class="hl opt">.</span>Name<span class="hl opt">.</span>EN <span class="hl opt">=</span> <span class="hl str">&quot;Smartphones&quot;</span><span class="hl opt">;</span>
+            rootCategory<span class="hl opt">.</span>Name<span class="hl opt">.</span>FR <span class="hl opt">=</span> <span class="hl str">&quot;Téléphones Mobiles&quot;</span><span class="hl opt">;</span>
+
+            <span class="hl kwd">CreateCategory</span><span class="hl opt">(</span>_userContext<span class="hl opt">,</span> <span class="hl kwa">ref</span> rootCategory<span class="hl opt">);</span>
+
+            <span class="hl slc">// 2. Create child Catgory: Smartphones &gt; Windows Phone</span>
+            <span class="hl slc">// ----------------------------------------------------------------</span>
+
+            var wpCategory <span class="hl opt">=</span> <span class="hl kwa">new</span> Category <span class="hl opt">{</span> IdCategoryParent <span class="hl opt">=</span> rootCategory<span class="hl opt">.</span>Id<span class="hl opt">,</span> CodeRef <span class="hl opt">=</span> <span class="hl str">&quot;WindowsPhone&quot;</span> <span class="hl opt">};</span>
+
+            wpCategory<span class="hl opt">.</span>Name<span class="hl opt">.</span>EN <span class="hl opt">=</span> <span class="hl str">&quot;Windows Phone&quot;</span><span class="hl opt">;</span>
+            wpCategory<span class="hl opt">.</span>Name<span class="hl opt">.</span>FR <span class="hl opt">=</span> <span class="hl str">&quot;Windows Phone&quot;</span><span class="hl opt">;</span>
+
+            <span class="hl kwd">CreateCategory</span><span class="hl opt">(</span>_userContext<span class="hl opt">,</span> <span class="hl kwa">ref</span> wpCategory<span class="hl opt">);</span>
+
+            <span class="hl slc">// 3. Create child Catgory: Smartphones &gt; Android</span>
+            <span class="hl slc">// ----------------------------------------------------------------</span>
+
+            var adCategory <span class="hl opt">=</span> <span class="hl kwa">new</span> Category <span class="hl opt">{</span> IdCategoryParent <span class="hl opt">=</span> rootCategory<span class="hl opt">.</span>Id<span class="hl opt">,</span> CodeRef <span class="hl opt">=</span> <span class="hl str">&quot;Android&quot;</span> <span class="hl opt">};</span>
+
+            adCategory<span class="hl opt">.</span>Name<span class="hl opt">.</span>EN <span class="hl opt">=</span> <span class="hl str">&quot;Android&quot;</span><span class="hl opt">;</span>
+            adCategory<span class="hl opt">.</span>Name<span class="hl opt">.</span>FR <span class="hl opt">=</span> <span class="hl str">&quot;Android&quot;</span><span class="hl opt">;</span>
+
+            <span class="hl kwd">CreateCategory</span><span class="hl opt">(</span>_userContext<span class="hl opt">,</span> <span class="hl kwa">ref</span> adCategory<span class="hl opt">);</span>
+
+            <span class="hl slc">// 4. Create Product: Microsoft Lumia 735</span>
+            <span class="hl slc">// ----------------------------------------------------------------</span>
+
+            var mlProduct <span class="hl opt">=</span> <span class="hl kwa">new</span> Product <span class="hl opt">{</span> IdCategory <span class="hl opt">=</span> wpCategory<span class="hl opt">.</span>Id<span class="hl opt">,</span> Ref <span class="hl opt">=</span> <span class="hl str">&quot;WPML735BLACK&quot;</span><span class="hl opt">,</span> Price <span class="hl opt">=</span> <span class="hl num">189.90M</span><span class="hl opt">,</span> IsAvailable <span class="hl opt">=</span> <span class="hl kwa">false</span> <span class="hl opt">};</span>
+
+            mlProduct<span class="hl opt">.</span>Name<span class="hl opt">.</span>EN <span class="hl opt">=</span> <span class="hl str">&quot;Microsoft Lumia 735 Black&quot;</span><span class="hl opt">;</span>
+            mlProduct<span class="hl opt">.</span>Name<span class="hl opt">.</span>FR <span class="hl opt">=</span> <span class="hl str">&quot;Microsoft Lumia 735 Noir&quot;</span><span class="hl opt">;</span>
+
+            <span class="hl kwd">CreateProduct</span><span class="hl opt">(</span>_userContext<span class="hl opt">,</span> <span class="hl kwa">ref</span> mlProduct<span class="hl opt">);</span>
+
+            <span class="hl slc">// 5. Create Product: Samsung Galaxy S5</span>
+            <span class="hl slc">// ----------------------------------------------------------------</span>
+
+            var sgProduct <span class="hl opt">=</span> <span class="hl kwa">new</span> Product <span class="hl opt">{</span> IdCategory <span class="hl opt">=</span> adCategory<span class="hl opt">.</span>Id<span class="hl opt">,</span> Ref <span class="hl opt">=</span> <span class="hl str">&quot;SGS5WHITE&quot;</span><span class="hl opt">,</span> Price <span class="hl opt">=</span> <span class="hl num">589.90M</span><span class="hl opt">,</span> IsAvailable <span class="hl opt">=</span> <span class="hl kwa">true</span> <span class="hl opt">};</span>
+
+            sgProduct<span class="hl opt">.</span>Name<span class="hl opt">.</span>EN <span class="hl opt">=</span> <span class="hl str">&quot;Samsung Galaxy S5 White&quot;</span><span class="hl opt">;</span>
+            sgProduct<span class="hl opt">.</span>Name<span class="hl opt">.</span>FR <span class="hl opt">=</span> <span class="hl str">&quot;Samsung Galaxy S5 Blanc&quot;</span><span class="hl opt">;</span>
+
+            <span class="hl kwd">CreateProduct</span><span class="hl opt">(</span>_userContext<span class="hl opt">,</span> <span class="hl kwa">ref</span> sgProduct<span class="hl opt">);</span>
+
+            <span class="hl slc">// 6. Create CommandStatus: Preparing</span>
+            <span class="hl slc">// ----------------------------------------------------------------</span>
+
+            var commandStatus <span class="hl opt">=</span> <span class="hl kwa">new</span> CommandStatus <span class="hl opt">{</span> CodeRef <span class="hl opt">=</span> <span class="hl str">&quot;Preparing&quot;</span><span class="hl opt">,</span> Description <span class="hl opt">=</span> <span class="hl str">&quot;Preparing&quot;</span> <span class="hl opt">};</span>
+
+            <span class="hl kwd">CreateCommandStatus</span><span class="hl opt">(</span>_userContext<span class="hl opt">,</span> <span class="hl kwa">ref</span> commandStatus<span class="hl opt">);</span>
+
+            <span class="hl slc">// 7. Create CommandStatus: Sent</span>
+            <span class="hl slc">// ----------------------------------------------------------------</span>
+
+            commandStatus <span class="hl opt">=</span> <span class="hl kwa">new</span> CommandStatus <span class="hl opt">{</span> CodeRef <span class="hl opt">=</span> <span class="hl str">&quot;Sent&quot;</span><span class="hl opt">,</span> Description <span class="hl opt">=</span> <span class="hl str">&quot;Sent&quot;</span> <span class="hl opt">};</span>
+
+            <span class="hl kwd">CreateCommandStatus</span><span class="hl opt">(</span>_userContext<span class="hl opt">,</span> <span class="hl kwa">ref</span> commandStatus<span class="hl opt">);</span>
+
+            <span class="hl slc">// 8. Create Country: France</span>
+            <span class="hl slc">// ----------------------------------------------------------------</span>
+
+            var country <span class="hl opt">=</span> <span class="hl kwa">new</span> <span class="hl kwd">Country</span><span class="hl opt">();</span>
+
+            country<span class="hl opt">.</span>Name<span class="hl opt">.</span>EN <span class="hl opt">=</span> <span class="hl str">&quot;France&quot;</span><span class="hl opt">;</span>
+            country<span class="hl opt">.</span>Name<span class="hl opt">.</span>FR <span class="hl opt">=</span> <span class="hl str">&quot;France&quot;</span><span class="hl opt">;</span>
+
+            <span class="hl kwd">CreateCountry</span><span class="hl opt">(</span>_userContext<span class="hl opt">,</span> <span class="hl kwa">ref</span> country<span class="hl opt">);</span>
+
+            <span class="hl slc">// 8. Create Client</span>
+            <span class="hl slc">// ----------------------------------------------------------------</span>
+
+            var client <span class="hl opt">=</span> <span class="hl kwa">new</span> Client <span class="hl opt">{</span> IdCountry <span class="hl opt">=</span> country<span class="hl opt">.</span>Id<span class="hl opt">,</span> Firstname <span class="hl opt">=</span> <span class="hl str">&quot;John&quot;</span><span class="hl opt">,</span> Lastname <span class="hl opt">=</span> <span class="hl str">&quot;Doe&quot;</span><span class="hl opt">,</span> Email <span class="hl opt">=</span> <span class="hl str">&quot;john.doe&#64;skynet.net&quot;</span><span class="hl opt">,</span> Ref <span class="hl opt">=</span> <span class="hl num">1234</span> <span class="hl opt">};</span>
+
+            <span class="hl kwd">CreateClient</span><span class="hl opt">(</span>_userContext<span class="hl opt">,</span> <span class="hl kwa">ref</span> client<span class="hl opt">);</span>
+
+            <span class="hl slc">// 9. Create Command + 2 CommandLines</span>
+            <span class="hl slc">// ----------------------------------------------------------------</span>
+
+            var command <span class="hl opt">=</span> <span class="hl kwa">new</span> Command <span class="hl opt">{</span> Ref <span class="hl opt">=</span> <span class="hl str">&quot;johndoe.0001&quot;</span><span class="hl opt">,</span> Date <span class="hl opt">=</span> DateTime<span class="hl opt">.</span>Now<span class="hl opt">,</span> IsPaid <span class="hl opt">=</span> <span class="hl kwa">false</span> <span class="hl opt">};</span>
+
+            command<span class="hl opt">.</span>IdClient <span class="hl opt">=</span> client<span class="hl opt">.</span>Id<span class="hl opt">;</span>
+            command<span class="hl opt">.</span>IdCommandStatus <span class="hl opt">=</span> commandStatus<span class="hl opt">.</span>Id<span class="hl opt">;</span> <span class="hl slc">// Sent</span>
+
+            command<span class="hl opt">.</span>CommandLineCollection<span class="hl opt">.</span><span class="hl kwd">Add</span><span class="hl opt">(</span><span class="hl kwa">new</span> CommandLine <span class="hl opt">{</span> Command <span class="hl opt">=</span> command<span class="hl opt">,</span> IdProduct <span class="hl opt">=</span> mlProduct<span class="hl opt">.</span>Id <span class="hl opt">});</span>
+            command<span class="hl opt">.</span>CommandLineCollection<span class="hl opt">.</span><span class="hl kwd">Add</span><span class="hl opt">(</span><span class="hl kwa">new</span> CommandLine <span class="hl opt">{</span> Command <span class="hl opt">=</span> command<span class="hl opt">,</span> IdProduct <span class="hl opt">=</span> sgProduct<span class="hl opt">.</span>Id <span class="hl opt">});</span>
+
+            <span class="hl slc">// Because the Command is not stored yet in database -&gt; CommandId == 0</span>
+            <span class="hl slc">// So we can't write command.CommandLineCollection.Add(new CommandLine { CommandId = command.Id, IdProduct = mlProduct.Id });</span>
+
+            <span class="hl kwa">using</span> <span class="hl opt">(</span><span class="hl kwa">var</span> service <span class="hl opt">=</span> <span class="hl kwa">new</span> ServiceProxy<span class="hl opt">&lt;</span>ICommandService<span class="hl opt">&gt;())</span>
+            <span class="hl opt">{</span>
+                service<span class="hl opt">.</span>Proxy<span class="hl opt">.</span><span class="hl kwd">Save</span><span class="hl opt">(</span>_userContext<span class="hl opt">,</span> <span class="hl kwa">ref</span> command<span class="hl opt">,</span> <span class="hl kwa">new</span> SaveOptions <span class="hl opt">{</span> SaveChildren <span class="hl opt">=</span> <span class="hl kwa">true</span> <span class="hl opt">});</span>
+            <span class="hl opt">}</span>
+        <span class="hl opt">}</span>
+
+        <span class="hl slc">// Delete all existing data</span>
+        <span class="hl kwa">private static</span> <span class="hl kwb">void</span> <span class="hl kwd">PurgeData</span><span class="hl opt">()</span>
+        <span class="hl opt">{</span>
+            <span class="hl kwa">using</span> <span class="hl opt">(</span><span class="hl kwa">var</span> service <span class="hl opt">=</span> <span class="hl kwa">new</span> ServiceProxy<span class="hl opt">&lt;</span>ICommandLineService<span class="hl opt">&gt;())</span>
+            <span class="hl opt">{</span>
+                var options <span class="hl opt">=</span> <span class="hl kwa">new</span> <span class="hl kwd">SearchOptions</span><span class="hl opt">();</span>
+                <span class="hl kwa">foreach</span> <span class="hl opt">(</span>var record <span class="hl kwa">in</span> service<span class="hl opt">.</span>Proxy<span class="hl opt">.</span><span class="hl kwd">Search</span><span class="hl opt">(</span>_userContext<span class="hl opt">,</span> <span class="hl kwa">ref</span> options<span class="hl opt">))</span>
+                    service<span class="hl opt">.</span>Proxy<span class="hl opt">.</span><span class="hl kwd">Delete</span><span class="hl opt">(</span>_userContext<span class="hl opt">,</span> record<span class="hl opt">.</span>Id<span class="hl opt">);</span>
+            <span class="hl opt">}</span>
+
+            <span class="hl kwa">using</span> <span class="hl opt">(</span><span class="hl kwa">var</span> service <span class="hl opt">=</span> <span class="hl kwa">new</span> ServiceProxy<span class="hl opt">&lt;</span>ICommandService<span class="hl opt">&gt;())</span>
+            <span class="hl opt">{</span>
+                var options <span class="hl opt">=</span> <span class="hl kwa">new</span> <span class="hl kwd">SearchOptions</span><span class="hl opt">();</span>
+                <span class="hl kwa">foreach</span> <span class="hl opt">(</span>var record <span class="hl kwa">in</span> service<span class="hl opt">.</span>Proxy<span class="hl opt">.</span><span class="hl kwd">Search</span><span class="hl opt">(</span>_userContext<span class="hl opt">,</span> <span class="hl kwa">ref</span> options<span class="hl opt">))</span>
+                    service<span class="hl opt">.</span>Proxy<span class="hl opt">.</span><span class="hl kwd">Delete</span><span class="hl opt">(</span>_userContext<span class="hl opt">,</span> record<span class="hl opt">.</span>Id<span class="hl opt">);</span>
+            <span class="hl opt">}</span>
+
+            <span class="hl kwa">using</span> <span class="hl opt">(</span><span class="hl kwa">var</span> service <span class="hl opt">=</span> <span class="hl kwa">new</span> ServiceProxy<span class="hl opt">&lt;</span>ICommandStatusService<span class="hl opt">&gt;())</span>
+            <span class="hl opt">{</span>
+                var options <span class="hl opt">=</span> <span class="hl kwa">new</span> <span class="hl kwd">SearchOptions</span><span class="hl opt">();</span>
+                <span class="hl kwa">foreach</span> <span class="hl opt">(</span>var record <span class="hl kwa">in</span> service<span class="hl opt">.</span>Proxy<span class="hl opt">.</span><span class="hl kwd">Search</span><span class="hl opt">(</span>_userContext<span class="hl opt">,</span> <span class="hl kwa">ref</span> options<span class="hl opt">))</span>
+                    service<span class="hl opt">.</span>Proxy<span class="hl opt">.</span><span class="hl kwd">Delete</span><span class="hl opt">(</span>_userContext<span class="hl opt">,</span> record<span class="hl opt">.</span>Id<span class="hl opt">);</span>
+            <span class="hl opt">}</span>
+
+            <span class="hl kwa">using</span> <span class="hl opt">(</span><span class="hl kwa">var</span> service <span class="hl opt">=</span> <span class="hl kwa">new</span> ServiceProxy<span class="hl opt">&lt;</span>IClientService<span class="hl opt">&gt;())</span>
+            <span class="hl opt">{</span>
+                var options <span class="hl opt">=</span> <span class="hl kwa">new</span> <span class="hl kwd">SearchOptions</span><span class="hl opt">();</span>
+                <span class="hl kwa">foreach</span> <span class="hl opt">(</span>var record <span class="hl kwa">in</span> service<span class="hl opt">.</span>Proxy<span class="hl opt">.</span><span class="hl kwd">Search</span><span class="hl opt">(</span>_userContext<span class="hl opt">,</span> <span class="hl kwa">ref</span> options<span class="hl opt">))</span>
+                    service<span class="hl opt">.</span>Proxy<span class="hl opt">.</span><span class="hl kwd">Delete</span><span class="hl opt">(</span>_userContext<span class="hl opt">,</span> record<span class="hl opt">.</span>Id<span class="hl opt">);</span>
+            <span class="hl opt">}</span>
+
+            <span class="hl kwa">using</span> <span class="hl opt">(</span><span class="hl kwa">var</span> service <span class="hl opt">=</span> <span class="hl kwa">new</span> ServiceProxy<span class="hl opt">&lt;</span>ICountryService<span class="hl opt">&gt;())</span>
+            <span class="hl opt">{</span>
+                var options <span class="hl opt">=</span> <span class="hl kwa">new</span> <span class="hl kwd">SearchOptions</span><span class="hl opt">();</span>
+                <span class="hl kwa">foreach</span> <span class="hl opt">(</span>var record <span class="hl kwa">in</span> service<span class="hl opt">.</span>Proxy<span class="hl opt">.</span><span class="hl kwd">Search</span><span class="hl opt">(</span>_userContext<span class="hl opt">,</span> <span class="hl kwa">ref</span> options<span class="hl opt">))</span>
+                    service<span class="hl opt">.</span>Proxy<span class="hl opt">.</span><span class="hl kwd">Delete</span><span class="hl opt">(</span>_userContext<span class="hl opt">,</span> record<span class="hl opt">.</span>Id<span class="hl opt">);</span>
+            <span class="hl opt">}</span>
+
+            <span class="hl kwa">using</span> <span class="hl opt">(</span><span class="hl kwa">var</span> service <span class="hl opt">=</span> <span class="hl kwa">new</span> ServiceProxy<span class="hl opt">&lt;</span>IProductService<span class="hl opt">&gt;())</span>
+            <span class="hl opt">{</span>
+                var options <span class="hl opt">=</span> <span class="hl kwa">new</span> <span class="hl kwd">SearchOptions</span><span class="hl opt">();</span>
+                <span class="hl kwa">foreach</span> <span class="hl opt">(</span>var record <span class="hl kwa">in</span> service<span class="hl opt">.</span>Proxy<span class="hl opt">.</span><span class="hl kwd">Search</span><span class="hl opt">(</span>_userContext<span class="hl opt">,</span> <span class="hl kwa">ref</span> options<span class="hl opt">))</span>
+                    service<span class="hl opt">.</span>Proxy<span class="hl opt">.</span><span class="hl kwd">Delete</span><span class="hl opt">(</span>_userContext<span class="hl opt">,</span> record<span class="hl opt">.</span>Id<span class="hl opt">);</span>
+            <span class="hl opt">}</span>
+
+            <span class="hl kwa">using</span> <span class="hl opt">(</span><span class="hl kwa">var</span> service <span class="hl opt">=</span> <span class="hl kwa">new</span> ServiceProxy<span class="hl opt">&lt;</span>ICategoryService<span class="hl opt">&gt;())</span>
+            <span class="hl opt">{</span>
+                var options <span class="hl opt">=</span> <span class="hl kwa">new</span> <span class="hl kwd">SearchOptions</span><span class="hl opt">();</span>
+                var categories <span class="hl opt">=</span> service<span class="hl opt">.</span>Proxy<span class="hl opt">.</span><span class="hl kwd">Search</span><span class="hl opt">(</span>_userContext<span class="hl opt">,</span> <span class="hl kwa">ref</span> options<span class="hl opt">);</span>
+
+                <span class="hl slc">// Really ugly! :)</span>
+
+                <span class="hl kwa">foreach</span> <span class="hl opt">(</span>var record <span class="hl kwa">in</span> categories<span class="hl opt">.</span><span class="hl kwd">Where</span><span class="hl opt">(</span>c <span class="hl opt">=&gt;</span> c<span class="hl opt">.</span>IdCategoryParent <span class="hl opt">!=</span> <span class="hl kwa">null</span><span class="hl opt">))</span>
+                    service<span class="hl opt">.</span>Proxy<span class="hl opt">.</span><span class="hl kwd">Delete</span><span class="hl opt">(</span>_userContext<span class="hl opt">,</span> record<span class="hl opt">.</span>Id<span class="hl opt">);</span>
+
+                <span class="hl kwa">foreach</span> <span class="hl opt">(</span>var record <span class="hl kwa">in</span> service<span class="hl opt">.</span>Proxy<span class="hl opt">.</span><span class="hl kwd">Search</span><span class="hl opt">(</span>_userContext<span class="hl opt">,</span> <span class="hl kwa">ref</span> options<span class="hl opt">))</span>
+                    service<span class="hl opt">.</span>Proxy<span class="hl opt">.</span><span class="hl kwd">Delete</span><span class="hl opt">(</span>_userContext<span class="hl opt">,</span> record<span class="hl opt">.</span>Id<span class="hl opt">);</span>
+            <span class="hl opt">}</span>
+        <span class="hl opt">}</span>
+    <span class="hl opt">}</span>
+<span class="hl opt">}</span></pre>
+    </section>
+</body>
+</html>

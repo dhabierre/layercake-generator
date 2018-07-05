@@ -1,0 +1,22 @@
+﻿<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+	<title>LCG - Tips - Before modifing T4 Templates</title>
+	<link rel="stylesheet" type="text/css" href="../Styles/Highlight.css">
+	<link rel="stylesheet" type="text/css" href="../Styles/Styles.css">
+</head>
+<body>
+	<h1>Tips - Before modifing T4 Templates</h1>
+	<section>
+		<p>The T4 templates are located in the <span class="text-bold">C:\Program Files (x86)\LayerCake Generator vX.X.X\Templates\</span> directory.</p>
+		<img src="../ScreenShots/BeforeModifingT4Templates-01.png" title="Illustration" alt="Illustration" />
+		<p>If you plan to modify them in order to suit your needs it is recommanded to copy the Templates\ directory into your project.</p>
+		<p class="action">Copy and paste the <span class="text-bold">Templates\</span> directory into your project</p>
+		<pre class="hl">D:\DEV\Com.Example.Labs\<span class="text-bold text-red">Templates\</span></pre>
+		<p class="action">Open the LayerCake Generator configuration file of the project</p>
+		<pre class="hl">D:\DEV\Com.Example.Labs\<span class="text-bold text-red">Com.Example.Labs.config</span></pre>
+		<p class="action">Set the <span class="text-bold">Config.AdvancedOptions.TemplateRootPath</span> key with the new path</p>
+		<pre class="hl">&quot;Config.AdvancedOptions.TemplateRootPath&quot; : <span class="text-bold text-red">&quot;D:\DEV\Com.Example.Labs\Templates\&quot;</span></pre>
+	</section>
+</body>
+</html>

@@ -1,0 +1,43 @@
+﻿<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+	<title>LCG - HowTo - Send Mails with GMail</title>
+	<link rel="stylesheet" type="text/css" href="../Styles/Highlight.css">
+	<link rel="stylesheet" type="text/css" href="../Styles/Styles.css">
+</head>
+<body>
+	<h1>HowTo - Send Mails with GMail</h1>
+	<section>
+		<p class="action">Open the <span class="text-bold">App.config</span> or <span class="text-bold">Web.config</span> file and edit the <span class="text-bold">smtpServiceConfiguration</span> section.</p>
+		<pre class="hl"><span class="hl kwa">&lt;smtpServiceConfiguration</span>
+  <span class="hl kwb">hostname</span>=<span class="text-red text-bold">&quot;smtp.gmail.com&quot;</span>
+  <span class="hl kwb">port</span>=<span class="text-red text-bold">&quot;587&quot;</span>
+  <span class="hl kwb">username</span>=<span class="hl str">&quot;GmailUsername&quot;</span>
+  <span class="hl kwb">password</span>=<span class="hl str">&quot;GmailPassword&quot;</span>
+  <span class="hl kwb">senderName</span>=<span class="hl str">&quot;SenderName&quot;</span>
+  <span class="hl kwb">from</span>=<span class="hl str">&quot;GmailEmailAddress&quot;</span>
+  <span class="hl kwb">cc</span>=<span class="hl str">&quot;&quot;</span>
+  <span class="hl kwb">bcc</span>=<span class="hl str">&quot;&quot;</span>
+  <span class="hl kwb">redirection</span>=<span class="hl str">&quot;&quot;</span>
+  <span class="hl kwb">enableSsl</span>=<span class="text-red text-bold">&quot;true&quot;</span>
+  <span class="hl kwb">useDefaultCredentials</span>=<span class="text-red text-bold">&quot;false&quot;</span> <span class="hl kwa">/&gt;</span></pre>
+		<p>Example</p>
+		<pre class="hl"><span class="hl kwa">var</span> smtpWrapper <span class="hl opt">=</span> ServiceLocator<span class="hl opt">.</span>Current<span class="hl opt">.</span>Resolve<span class="hl opt">&lt;</span>ISmtpService<span class="hl opt">&gt;();</span>
+smtpWrapper<span class="hl opt">.</span><span class="hl kwd">Send</span><span class="hl opt">(</span><span class="hl str">&quot;user&#64;nowhere.com&quot;</span><span class="hl opt">,</span> <span class="hl str">&quot;Subject...&quot;</span><span class="hl opt">,</span> <span class="hl str">&quot;Content...&quot;</span><span class="hl opt">);</span></pre>
+		<p>Or</p>
+		<pre class="hl">SmtpServiceHelper<span class="hl opt">.</span>Current<span class="hl opt">.</span><span class="hl kwd">Send</span><span class="hl opt">(</span><span class="hl str">&quot;user&#64;nowhere.com&quot;</span><span class="hl opt">,</span> <span class="hl str">&quot;Subject...&quot;</span><span class="hl opt">,</span> <span class="hl str">&quot;Content...&quot;</span><span class="hl opt">);</span></pre>
+		<p>Alternative</p>
+		<pre class="hl"><span class="hl kwa">var</span> smtpWrapper <span class="hl opt">=</span> ServiceLocator<span class="hl opt">.</span>Current<span class="hl opt">.</span>Resolve<span class="hl opt">&lt;</span>ISmtpService<span class="hl opt">&gt;();</span>
+
+<span class="hl kwa">using</span> <span class="hl opt">(</span>SmtpClient smtpClient <span class="hl opt">=</span> smtpWrapper<span class="hl opt">.</span><span class="hl kwd">GetSmtpClientInstance</span><span class="hl opt">())</span>
+<span class="hl kwa">using</span> <span class="hl opt">(</span>MailMessage mailMessage <span class="hl opt">=</span> <span class="hl kwa">new</span> <span class="hl kwd">MailMessage</span><span class="hl opt">(</span><span class="hl str">&quot;from&#64;gmail.com&quot;</span><span class="hl opt">,</span> <span class="hl str">&quot;user&#64;nowhere.com&quot;</span><span class="hl opt">)</span>
+<span class="hl opt">{</span>
+    Subject <span class="hl opt">=</span> <span class="hl str">&quot;Subject...&quot;</span><span class="hl opt">,</span>
+    Body <span class="hl opt">=</span> <span class="hl str">&quot;Content...&quot;</span>
+<span class="hl opt">})</span>
+<span class="hl opt">{</span>
+    smtpClient<span class="hl opt">.</span><span class="hl kwd">Send</span><span class="hl opt">(</span>mailMessage<span class="hl opt">);</span>
+<span class="hl opt">}</span></pre>
+	</section>
+</body>
+</html>

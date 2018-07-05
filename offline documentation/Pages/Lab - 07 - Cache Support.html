@@ -1,0 +1,132 @@
+﻿<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <title>LCG - 07 - Cache Support</title>
+    <link rel="stylesheet" type="text/css" href="../Styles/Highlight.css">
+    <link rel="stylesheet" type="text/css" href="../Styles/Styles.css">
+</head>
+<body>
+    <h1>Lab 07 - Cache Support</h1>
+    <section>
+        <p>Duration: <span class="text-bold">~10mins</span></p>
+    </section>
+    <section>
+        <p>Here a classic business method without any Cache Support. It simply loads all the countries from the database.</p>
+		<pre class="hl"><span class="hl com">// Business | CountryBusiness.custom.cs</span>
+
+<span class="hl kwa">namespace</span> Com<span class="hl opt">.</span>Example<span class="hl opt">.</span>Labs<span class="hl opt">.</span>Business
+<span class="hl opt">{</span>
+    <span class="hl kwa">using</span> System<span class="hl opt">;</span>
+
+    <span class="hl kwa">using</span> Com<span class="hl opt">.</span>Example<span class="hl opt">.</span>Labs<span class="hl opt">.</span>Core<span class="hl opt">;</span>
+    <span class="hl kwa">using</span> Com<span class="hl opt">.</span>Example<span class="hl opt">.</span>Labs<span class="hl opt">.</span>Crud<span class="hl opt">;</span>
+    <span class="hl kwa">using</span> Com<span class="hl opt">.</span>Example<span class="hl opt">.</span>Labs<span class="hl opt">.</span>Models<span class="hl opt">;</span>
+
+    <span class="hl opt">[</span><span class="hl kwd">BusinessClass</span><span class="hl opt">]</span>
+    <span class="hl kwa">public class</span> CountryBusiness <span class="hl opt">:</span> BusinessBase
+    <span class="hl opt">{</span>
+        <span class="hl ppc">#region [ Custom public methods ]</span>
+
+        <span class="hl opt">[</span><span class="hl kwd">BusinessMethod</span><span class="hl opt">]</span>
+        <span class="hl kwa">public</span> TCollection<span class="hl opt">&lt;</span>Country<span class="hl opt">&gt;</span> <span class="hl kwd">GetAllCountries</span><span class="hl opt">(</span>IUserContext userContext<span class="hl opt">)</span>
+        <span class="hl opt">{</span>
+            TCollection<span class="hl opt">&lt;</span>Country<span class="hl opt">&gt;</span> countries <span class="hl opt">=</span> <span class="hl kwa">null</span><span class="hl opt">;</span>
+
+            <span class="hl kwa">using</span> <span class="hl opt">(</span><span class="hl kwa">var</span> et <span class="hl opt">=</span> <span class="hl kwa">new</span> <span class="hl kwd">ExecutionTracerService</span><span class="hl opt">())</span>
+            <span class="hl kwa">using</span> <span class="hl opt">(</span><span class="hl kwa">var</span> db <span class="hl opt">=</span> <span class="hl kwa">new</span> <span class="hl kwd">CountryCrud</span><span class="hl opt">(</span>userContext<span class="hl opt">))</span>
+            <span class="hl opt">{</span>
+                SearchOptions options <span class="hl opt">=</span> <span class="hl kwa">new</span> <span class="hl kwd">SearchOptions</span><span class="hl opt">();</span>
+
+                <span class="hl slc">// Search without SearchOptions.Filters retrieves all the records.</span>
+                countries <span class="hl opt">=</span> db<span class="hl opt">.</span><span class="hl kwd">Search</span><span class="hl opt">(</span><span class="hl kwa">ref</span> options<span class="hl opt">);</span> 
+            <span class="hl opt">}</span>
+
+            <span class="hl kwa">return</span> countries<span class="hl opt">;</span>
+        <span class="hl opt">}</span>
+
+        <span class="hl ppc">#endregion</span>
+    <span class="hl opt">}</span>
+<span class="hl opt">}</span></pre>
+		<p>The same business method with Cache Support.</p>
+		<pre class="hl"><span class="hl com">// Business | CountryBusiness.custom.cs</span>
+
+<span class="hl kwa">namespace</span> Com<span class="hl opt">.</span>Example<span class="hl opt">.</span>Labs<span class="hl opt">.</span>Business
+<span class="hl opt">{</span>
+    <span class="hl kwa">using</span> System<span class="hl opt">;</span>
+
+    <span class="hl kwa">using</span> Com<span class="hl opt">.</span>Example<span class="hl opt">.</span>Labs<span class="hl opt">.</span>Core<span class="hl opt">;</span>
+    <span class="hl kwa">using</span> Com<span class="hl opt">.</span>Example<span class="hl opt">.</span>Labs<span class="hl opt">.</span>Crud<span class="hl opt">;</span>
+    <span class="hl kwa">using</span> Com<span class="hl opt">.</span>Example<span class="hl opt">.</span>Labs<span class="hl opt">.</span>Models<span class="hl opt">;</span>
+
+    <span class="hl opt">[</span><span class="hl kwd">BusinessClass</span><span class="hl opt">]</span>
+    <span class="hl kwa">public class</span> CountryBusiness <span class="hl opt">:</span> BusinessBase
+    <span class="hl opt">{</span>
+        <span class="hl ppc">#region [ Member ]</span>
+
+        <span class="hl kwa">private static readonly</span> <span class="hl kwb">object</span> _getAllCountriesCacheLocker <span class="hl opt">=</span> <span class="hl kwa">new</span> <span class="hl kwb">object</span>();
+
+        <span class="hl ppc">#endregion</span>
+
+        <span class="hl ppc">#region [ Custom public methods ]</span>
+
+        <span class="hl opt">[</span><span class="hl kwd">BusinessMethod</span><span class="hl opt">]</span>
+        <span class="hl kwa">public</span> TCollection<span class="hl opt">&lt;</span>Country<span class="hl opt">&gt;</span> <span class="hl kwd">GetAllCountries</span><span class="hl opt">(</span>IUserContext userContext<span class="hl opt">)</span>
+        <span class="hl opt">{</span>
+            <span class="hl kwb">const string</span> cacheKey <span class="hl opt">=</span> <span class="hl str">&quot;GetAllCountries&quot;</span><span class="hl opt">;</span>
+
+            <span class="hl slc">// Retrieve the data from the default cache.</span>
+            <span class="text-red">var countries = CacheServiceHelper.Current.Get&lt;TCollection&lt;Country&gt;&gt;(cacheKey);</span>
+            <span class="hl kwa">if</span> <span class="hl opt">(</span>countries <span class="hl opt">==</span> <span class="hl kwa">null</span><span class="hl opt">)</span>
+            <span class="hl opt">{</span>
+                <span class="hl kwd">lock</span> <span class="hl opt">(</span>_getAllCountriesCacheLocker<span class="hl opt">)</span>
+                <span class="hl opt">{</span>
+                    <span class="text-red">countries = CacheServiceHelper.Current.Get&lt;TCollection&lt;Country&gt;&gt;(cacheKey);</span>
+                    <span class="hl kwa">if</span> <span class="hl opt">(</span>countries <span class="hl opt">==</span> <span class="hl kwa">null</span><span class="hl opt">)</span>
+                    <span class="hl opt">{</span>
+                        <span class="hl slc">// No data found. Request from the database...</span>
+
+                        <span class="hl kwa">using</span> <span class="hl opt">(</span><span class="hl kwa">var</span> et <span class="hl opt">=</span> <span class="hl kwa">new</span> <span class="hl kwd">ExecutionTracerService</span><span class="hl opt">())</span>
+                        <span class="hl kwa">using</span> <span class="hl opt">(</span><span class="hl kwa">var</span> db <span class="hl opt">=</span> <span class="hl kwa">new</span> <span class="hl kwd">CountryCrud</span><span class="hl opt">(</span>userContext<span class="hl opt">))</span>
+                        <span class="hl opt">{</span>
+                            SearchOptions options <span class="hl opt">=</span> <span class="hl kwa">new</span> <span class="hl kwd">SearchOptions</span><span class="hl opt">();</span>
+
+                            countries <span class="hl opt">=</span> db<span class="hl opt">.</span><span class="hl kwd">Search</span><span class="hl opt">(</span><span class="hl kwa">ref</span> options<span class="hl opt">);</span>
+                        <span class="hl opt">}</span>
+
+                        <span class="hl slc">// Add the data to the default cache for 2 hours.</span>
+                        <span class="text-red">CacheServiceHelper.Current.Add(new CacheItem
+                        {
+                            Key = cacheKey,
+                            Data = countries,
+                            Expiration = DateTime.Now.AddHours(2)
+                        });</span>
+                    <span class="hl opt">}</span>
+                <span class="hl opt">}</span>
+            <span class="hl opt">}</span>
+
+            <span class="hl kwa">return</span> countries<span class="hl opt">;</span>
+        <span class="hl opt">}</span>
+
+        <span class="hl ppc">#endregion</span>
+    <span class="hl opt">}</span>
+<span class="hl opt">}</span></pre>
+		<p>It is possible to change the default ICacheService implementation (<span class="text-italic">System.LocalMemoryCacheService</span>) edit the <span class="text-bold">implementation</span> (with the new one) attribute in the Configuration file.</p>
+		<pre class="hl"><span class="hl kwa">&lt;serviceLocatorConfiguration&gt;</span>
+  <span class="hl kwa">&lt;instances&gt;</span>
+    <span class="hl kwa">&lt;instance</span>
+      <span class="hl kwb">interface</span>=<span class="hl str">&quot;System.ILoggerService, System.Extensions&quot;</span>
+      <span class="hl kwb">implementation</span>=<span class="hl str">&quot;System.LoggerService, System.Extensions&quot;</span>
+      <span class="hl kwb">instancingMode</span>=<span class="hl str">&quot;Singleton&quot;</span><span class="hl kwa">/&gt;</span>
+    <span class="hl kwa">&lt;instance</span>
+      <span class="hl kwb">interface</span>=<span class="hl str text-bold">&quot;System.ICacheService, System.Extensions&quot;</span>
+      <span class="highlight-text">implementation=&quot;System.LocalMemoryCacheService, System.Extensions&quot;</span>
+      <span class="hl kwb">instancingMode</span>=<span class="hl str">&quot;Singleton&quot;</span><span class="hl kwa">/&gt;</span>
+    <span class="hl kwa">&lt;instance</span>
+      <span class="hl kwb">interface</span>=<span class="hl str">&quot;System.ISmtpService, System.Extensions&quot;</span>
+      <span class="hl kwb">implementation</span>=<span class="hl str">&quot;System.SmtpService, System.Extensions&quot;</span>
+      <span class="hl kwb">instancingMode</span>=<span class="hl str">&quot;Singleton&quot;</span><span class="hl kwa">/&gt;</span>
+  <span class="hl kwa">&lt;/instances&gt;</span>
+<span class="hl kwa">&lt;/serviceLocatorConfiguration&gt;</span></pre>
+    </section>
+</body>
+</html>

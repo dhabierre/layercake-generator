@@ -1,0 +1,681 @@
+﻿<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+	<title>LCG - HowTo - Hierarchical Tables</title>
+	<link rel="stylesheet" type="text/css" href="../Styles/Highlight.css">
+	<link rel="stylesheet" type="text/css" href="../Styles/Styles.css">
+</head>
+<body>
+	<h1>HowTo - Hierarchical Tables</h1>
+	<section>
+		<p>This HowTo is about hierarchical tables and how to handle them with CTE.</p>
+	</section>
+	<section>
+		<h2>1. Database</h2>
+		<p>Here an example.</p>
+		<img src="../ScreenShots/HierarchicalTable-01.png" title="Illustration" alt="Illustration" />
+		<p>The SQL script (tables and data) is available <a href="../Resources/HowTo-HierarchicalTables.txt" target="_blank" class="red-round">here</a> for testing.</p>
+		<p><span class="text-bold">Category</span> data.</p>
+		<img src="../ScreenShots/HierarchicalTable-02.png" title="Illustration" alt="Illustration" />
+		<p>The following request displays the Category hierarchy.</p>
+		<pre class="hl"><span class="hl opt">;</span>
+<span class="hl kwa">WITH</span> Hierarchy <span class="hl opt">(</span>ParentId<span class="hl opt">,</span> ChildId<span class="hl opt">,</span> ChildName<span class="hl opt">,</span> Deeper<span class="hl opt">,</span> Ordering<span class="hl opt">)</span>
+<span class="hl kwa">AS</span>
+<span class="hl opt">(</span>
+    <span class="hl kwa">SELECT</span>
+        Category_Id<span class="hl opt">,</span>
+        Category_IdCategoryFather<span class="hl opt">,</span>
+        Category_Name<span class="hl opt">,</span>
+        <span class="hl num">0</span><span class="hl opt">,</span>
+        <span class="hl kwa">CAST</span><span class="hl opt">(</span>Category_Id <span class="hl kwa">AS</span> <span class="hl kwb">VARCHAR</span><span class="hl opt">(</span><span class="hl num">8</span><span class="hl opt">))</span>
+    <span class="hl kwa">FROM</span>
+        Category
+    <span class="hl kwa">WHERE</span>
+        Category_IdCategoryFather <span class="hl kwa">IS NULL</span>
+ 
+    <span class="hl kwa">UNION ALL</span>
+ 
+    <span class="hl kwa">SELECT</span>
+        Child.Category_Id<span class="hl opt">,</span>
+        Child.Category_IdCategoryFather<span class="hl opt">,</span>
+        Child.Category_Name<span class="hl opt">,</span>
+        Hierarchy.Deeper <span class="hl opt">+</span> <span class="hl num">1</span><span class="hl opt">,</span>
+        <span class="hl kwa">CAST</span><span class="hl opt">(</span>Hierarchy.Ordering <span class="hl opt">+</span> <span class="hl str">'_'</span> <span class="hl opt">+</span> <span class="hl kwa">CAST</span><span class="hl opt">(</span>Child.Category_Id <span class="hl kwa">AS</span> <span class="hl kwb">VARCHAR</span><span class="hl opt">)</span> <span class="hl kwa">AS</span> <span class="hl kwb">VARCHAR</span><span class="hl opt">(</span><span class="hl num">8</span><span class="hl opt">))</span>
+    <span class="hl kwa">FROM</span>
+        Category Child
+        <span class="hl kwa">INNER JOIN Hierarchy on</span> Child.Category_IdCategoryFather <span class="hl opt">=</span> Hierarchy.ParentId
+<span class="hl opt">)</span>
+<span class="hl kwa">SELECT</span> <span class="hl kwd">REPLICATE</span><span class="hl opt">(</span><span class="hl str">' '</span><span class="hl opt">, </span>Deeper * 3<span class="hl opt">) +</span> <span class="hl str">'| '</span> <span class="hl opt">+</span> ChildName<span class="hl opt">,</span> Deeper
+<span class="hl kwa">FROM</span> Hierarchy
+<span class="hl kwa">ORDER BY</span> Ordering</pre>
+		<img src="../ScreenShots/HierarchicalTable-03.png" title="Illustration" alt="Illustration" />
+		<p><span class="text-bold">Book</span> data.</p>
+		<img src="../ScreenShots/HierarchicalTable-04.png" title="Illustration" alt="Illustration" />
+		<p><span class="text-bold">Phone</span> data.</p>
+		<img src="../ScreenShots/HierarchicalTable-05.png" title="Illustration" alt="Illustration" />
+	</section>
+	<section>
+		<h2>2. Stored Procedures</h2>
+		<p class="text-bold">Category_Custom_GetChildren</p>
+		<p>Get the children of the specified Category.</p>
+		<pre class="hl"><span class="hl kwa">CREATE PROCEDURE</span> Category_Custom_GetChildren
+<span class="hl opt">(</span>
+    &#64;Category_Id <span class="hl kwb">BIGINT</span> <span class="hl opt">=</span> <span class="hl kwa">NULL</span><span class="hl opt">,</span>
+    
+    &#64;CtxUser <span class="hl kwb">BIGINT</span><span class="hl opt"> =</span> <span class="hl kwa">NULL</span><span class="hl opt">,</span>			<span class="hl slc">-- Not used</span>
+    &#64;CtxCulture <span class="hl kwb">VARCHAR</span><span class="hl opt">(</span><span class="hl num">2</span><span class="hl opt">) =</span> <span class="hl str">N'EN'</span><span class="hl opt">,</span>		<span class="hl slc">-- Not used</span>
+    &#64;CtxWithContextSecurity <span class="hl kwb">BIT</span> <span class="hl opt">=</span> <span class="hl str">N'True'</span>	<span class="hl slc">-- Not used</span>
+<span class="hl opt">)</span>
+<span class="hl kwa">AS</span>
+<span class="hl kwa">BEGIN</span>
+
+    <span class="hl kwa">SET NOCOUNT ON</span>
+
+    <span class="hl kwa">SELECT</span>
+        <span class="hl opt">*,</span>
+        <span class="hl opt">(</span><span class="hl kwa">SELECT COUNT</span><span class="hl opt">(</span><span class="hl num">0</span><span class="hl opt">)</span> <span class="hl kwa">FROM</span> Category C <span class="hl kwa">WITH</span><span class="hl opt">(</span><span class="hl kwa">NOLOCK</span><span class="hl opt">)</span> <span class="hl kwa">WHERE</span> C.Category_IdCategoryFather <span class="hl opt">=</span> Category.Category_Id<span class="hl opt">)</span> <span class="hl kwa">AS</span> ChildrenCount<span class="hl opt">,</span>
+        <span class="hl opt">(</span><span class="hl kwa">SELECT COUNT</span><span class="hl opt">(</span><span class="hl num">0</span><span class="hl opt">)</span> <span class="hl kwa">FROM</span> Book B <span class="hl kwa">WITH</span><span class="hl opt">(</span><span class="hl kwa">NOLOCK</span><span class="hl opt">)</span> <span class="hl kwa">WHERE</span> B.Book_IdCategory <span class="hl opt">=</span> Category_Id<span class="hl opt">)</span> <span class="hl kwa">AS</span> BookCount<span class="hl opt">,</span>
+        <span class="hl opt">(</span><span class="hl kwa">SELECT COUNT</span><span class="hl opt">(</span><span class="hl num">0</span><span class="hl opt">)</span> <span class="hl kwa">FROM</span> Phone P <span class="hl kwa">WITH</span><span class="hl opt">(</span><span class="hl kwa">NOLOCK</span><span class="hl opt">)</span> <span class="hl kwa">WHERE</span> P.Phone_IdCategory <span class="hl opt">=</span> Category_Id<span class="hl opt">)</span> <span class="hl kwa">AS</span> PhoneCount
+    <span class="hl kwa">FROM</span>
+        Category <span class="hl kwa">WITH</span><span class="hl opt">(</span><span class="hl kwa">NOLOCK</span><span class="hl opt">)</span>
+    <span class="hl kwa">WHERE</span>
+        &#64;Category_Id <span class="hl kwa">IS NULL AND</span> Category.Category_IdCategoryFather <span class="hl kwa">IS NULL</span>
+     
+    <span class="hl kwa">UNION</span> <span class="hl slc">-- To avoid OR operator in WHERE (bad for performances)</span>
+
+    <span class="hl kwa">SELECT</span>
+        <span class="hl opt">*,</span>
+        <span class="hl opt">(</span><span class="hl kwa">SELECT COUNT</span><span class="hl opt">(</span><span class="hl num">0</span><span class="hl opt">)</span> <span class="hl kwa">FROM</span> Category C <span class="hl kwa">WITH</span><span class="hl opt">(</span><span class="hl kwa">NOLOCK</span><span class="hl opt">)</span> <span class="hl kwa">WHERE</span> C.Category_IdCategoryFather <span class="hl opt">=</span> Category.Category_Id<span class="hl opt">)</span> <span class="hl kwa">AS</span> ChildrenCount<span class="hl opt">,</span>
+        <span class="hl opt">(</span><span class="hl kwa">SELECT COUNT</span><span class="hl opt">(</span><span class="hl num">0</span><span class="hl opt">)</span> <span class="hl kwa">FROM</span> Book B <span class="hl kwa">WITH</span><span class="hl opt">(</span><span class="hl kwa">NOLOCK</span><span class="hl opt">)</span> <span class="hl kwa">WHERE</span> B.Book_IdCategory <span class="hl opt">=</span> Category_Id<span class="hl opt">)</span> <span class="hl kwa">AS</span> BookCount<span class="hl opt">,</span>
+        <span class="hl opt">(</span><span class="hl kwa">SELECT COUNT</span><span class="hl opt">(</span><span class="hl num">0</span><span class="hl opt">)</span> <span class="hl kwa">FROM</span> Phone P <span class="hl kwa">WITH</span><span class="hl opt">(</span><span class="hl kwa">NOLOCK</span><span class="hl opt">)</span> <span class="hl kwa">WHERE</span> P.Phone_IdCategory <span class="hl opt">=</span> Category_Id<span class="hl opt">)</span> <span class="hl kwa">AS</span> PhoneCount
+    <span class="hl kwa">FROM</span>
+        Category <span class="hl kwa">WITH</span><span class="hl opt">(</span><span class="hl kwa">NOLOCK</span><span class="hl opt">)</span>
+    <span class="hl kwa">WHERE</span>
+        &#64;Category_Id <span class="hl kwa">IS NOT NULL</span>
+    <span class="hl kwa">AND</span> Category.Category_IdCategoryFather <span class="hl opt">=</span> &#64;Category_Id
+    
+<span class="hl kwa">END</span></pre>
+		<pre class="hl"><span class="hl kwa">EXEC</span> <span class="hl opt">[</span>dbo<span class="hl opt">]</span>.<span class="hl opt">[</span>Category_Custom_GetChildren<span class="hl opt">]</span> &#64;Category_Id <span class="hl opt">=</span> <span class="hl kwa">NULL</span> <span class="hl slc">-- Root categories</span>
+<span class="hl kwa">EXEC</span> <span class="hl opt">[</span>dbo<span class="hl opt">]</span>.<span class="hl opt">[</span>Category_Custom_GetChildren<span class="hl opt">]</span> &#64;Category_Id <span class="hl opt">=</span> <span class="hl num">1</span> <span class="hl slc">-- 'Books' category</span>
+<span class="hl kwa">EXEC</span> <span class="hl opt">[</span>dbo<span class="hl opt">]</span>.<span class="hl opt">[</span>Category_Custom_GetChildren<span class="hl opt">]</span> &#64;Category_Id <span class="hl opt">=</span> <span class="hl num">3</span> <span class="hl slc">-- 'Crime &amp; Thriller' category</span></pre>
+		<img src="../ScreenShots/HierarchicalTable-06.png" title="Illustration" alt="Illustration" />
+		<p class="text-bold">Category_Custom_GetChildrenAndDescendants</p>
+		<p>Get the children &amp; all the descendants of the specified Category.</p>
+		<pre class="hl"><span class="hl kwa">CREATE PROCEDURE</span> Category_Custom_GetChildrenAndDescendants
+<span class="hl opt">(</span>
+    &#64;Category_Id <span class="hl kwb">BIGINT</span> <span class="hl opt">=</span> <span class="hl kwa">NULL</span><span class="hl opt">,</span>
+    &#64;DeepLimit <span class="hl kwb">INT</span> <span class="hl opt">=</span> <span class="hl kwa">NULL</span><span class="hl opt">,</span>
+    
+    &#64;CtxUser <span class="hl kwb">BIGINT</span><span class="hl opt"> =</span> <span class="hl kwa">NULL</span><span class="hl opt">,</span>			<span class="hl slc">-- Not used</span>
+    &#64;CtxCulture <span class="hl kwb">VARCHAR</span><span class="hl opt">(</span><span class="hl num">2</span><span class="hl opt">) =</span> <span class="hl str">N'EN'</span><span class="hl opt">,</span>		<span class="hl slc">-- Not used</span>
+    &#64;CtxWithContextSecurity <span class="hl kwa">BIT</span> <span class="hl opt">=</span> <span class="hl str">N'True'</span>	<span class="hl slc">-- Not used</span>
+<span class="hl opt">)</span>
+<span class="hl kwa">AS</span>
+<span class="hl kwa">BEGIN</span>
+
+    <span class="hl kwa">SET NOCOUNT ON</span>
+
+    <span class="hl opt">;</span>
+    <span class="hl kwa">WITH</span> Hierarchy
+    <span class="hl opt">(</span>
+        Category_Id<span class="hl opt">,</span>
+        Category_IdCategoryFather<span class="hl opt">,</span>
+        Category_Name<span class="hl opt">,</span>
+        Category_Rank<span class="hl opt">,</span>
+        Deep
+    <span class="hl opt">)</span>
+    <span class="hl kwa">AS</span>
+    <span class="hl opt">(</span>
+        <span class="hl kwa">SELECT</span>
+            Category.<span class="hl opt">*,</span>
+            <span class="hl num">0</span>
+        <span class="hl kwa">FROM</span>
+            Category <span class="hl kwa">WITH</span><span class="hl opt">(</span><span class="hl kwa">NOLOCK</span><span class="hl opt">)</span>
+        <span class="hl kwa">WHERE</span>
+            &#64;Category_Id <span class="hl kwa">IS NULL AND</span> Category.Category_IdCategoryFather <span class="hl kwa">IS NULL</span>
+         
+        <span class="hl kwa">UNION</span> <span class="hl slc">-- To avoid OR operator in WHERE (bad for performances)</span>
+        
+        <span class="hl kwa">SELECT</span>
+            Category.<span class="hl opt">*,</span>
+            <span class="hl num">0</span>
+        <span class="hl kwa">FROM</span>
+            Category <span class="hl kwa">WITH</span><span class="hl opt">(</span><span class="hl kwa">NOLOCK</span><span class="hl opt">)</span>
+        <span class="hl kwa">WHERE</span>
+            &#64;Category_Id <span class="hl kwa">IS NOT NULL AND</span> Category.Category_IdCategoryFather <span class="hl opt">=</span> &#64;Category_Id
+     
+        <span class="hl kwa">UNION ALL</span>
+     
+        <span class="hl kwa">SELECT</span>
+            Category.<span class="hl opt">*,</span>
+            Hierarchy.Deep <span class="hl opt">+</span> <span class="hl num">1</span>
+        <span class="hl kwa">FROM</span>
+            Category <span class="hl kwa">WITH</span><span class="hl opt">(</span><span class="hl kwa">NOLOCK</span><span class="hl opt">)</span>
+            <span class="hl kwa">INNER JOIN Hierarchy ON Hierarchy</span>.Category_Id <span class="hl opt">=</span> Category.Category_IdCategoryFather
+        <span class="hl kwa">WHERE</span>
+            Hierarchy.Deep <span class="hl opt">&lt;</span> <span class="hl kwa">ISNULL</span><span class="hl opt">(</span>&#64;DeepLimit<span class="hl opt">,</span> <span class="hl num">99</span><span class="hl opt">)</span>
+    <span class="hl opt">)</span>
+    <span class="hl kwa">SELECT DISTINCT</span>
+        Hierarchy.<span class="hl opt">*,</span>
+        <span class="hl opt">(</span><span class="hl kwa">SELECT COUNT</span><span class="hl opt">(</span><span class="hl num">0</span><span class="hl opt">)</span> <span class="hl kwa">FROM</span> Category C <span class="hl kwa">WITH</span><span class="hl opt">(</span><span class="hl kwa">NOLOCK</span><span class="hl opt">)</span> <span class="hl kwa">WHERE</span> C.Category_IdCategoryFather <span class="hl opt">=</span> Hierarchy.Category_Id<span class="hl opt">)</span> <span class="hl kwa">AS</span> ChildrenCount<span class="hl opt">,</span>
+        <span class="hl opt">(</span><span class="hl kwa">SELECT COUNT</span><span class="hl opt">(</span><span class="hl num">0</span><span class="hl opt">)</span> <span class="hl kwa">FROM</span> Book B <span class="hl kwa">WITH</span><span class="hl opt">(</span><span class="hl kwa">NOLOCK</span><span class="hl opt">)</span> <span class="hl kwa">WHERE</span> B.Book_IdCategory <span class="hl opt">=</span> Hierarchy.Category_Id<span class="hl opt">)</span> <span class="hl kwa">AS</span> BookCount<span class="hl opt">,</span>
+        <span class="hl opt">(</span><span class="hl kwa">SELECT COUNT</span><span class="hl opt">(</span><span class="hl num">0</span><span class="hl opt">)</span> <span class="hl kwa">FROM</span> Phone P <span class="hl kwa">WITH</span><span class="hl opt">(</span><span class="hl kwa">NOLOCK</span><span class="hl opt">)</span> <span class="hl kwa">WHERE</span> P.Phone_IdCategory <span class="hl opt">=</span> Category_Id<span class="hl opt">)</span> <span class="hl kwa">AS</span> PhoneCount
+    <span class="hl kwa">FROM</span>
+        Hierarchy
+    <span class="hl kwa">ORDER BY</span>
+        Hierarchy.Deep
+        
+<span class="hl kwa">END</span></pre>
+		<pre class="hl"><span class="hl kwa">EXEC</span> <span class="hl opt">[</span>dbo<span class="hl opt">]</span>.<span class="hl opt">[</span>Category_Custom_GetChildrenAndDescendants<span class="hl opt">]</span>
+      &#64;Category_Id <span class="hl opt">=</span> <span class="hl kwa">NULL</span><span class="hl opt">,</span> <span class="hl slc">-- Root categories</span>
+      &#64;DeepLimit <span class="hl opt">=</span> <span class="hl kwa">NULL</span>
+		
+<span class="hl kwa">EXEC</span> <span class="hl opt">[</span>dbo<span class="hl opt">]</span>.<span class="hl opt">[</span>Category_Custom_GetChildrenAndDescendants<span class="hl opt">]</span>
+      &#64;Category_Id <span class="hl opt">=</span> <span class="hl num">2</span><span class="hl opt">,</span> <span class="hl slc">-- 'Phones' category</span>
+      &#64;DeepLimit <span class="hl opt">=</span> <span class="hl kwa">NULL</span></pre>
+		<img src="../ScreenShots/HierarchicalTable-07.png" title="Illustration" alt="Illustration" />
+		<p class="text-bold">Category_Custom_GetFather</p>
+		<p>Get the father of the specified Category.</p>
+		<pre class="hl"><span class="hl kwa">CREATE PROCEDURE</span> Category_Custom_GetFather
+<span class="hl opt">(</span>
+    &#64;Category_Id <span class="hl kwb">BIGINT</span><span class="hl opt">,</span>
+    
+    &#64;CtxUser <span class="hl kwb">BIGINT</span><span class="hl opt"> =</span> <span class="hl kwa">NULL</span><span class="hl opt">,</span>			<span class="hl slc">-- Not used</span>
+    &#64;CtxCulture <span class="hl kwb">VARCHAR</span><span class="hl opt">(</span><span class="hl num">2</span><span class="hl opt">) =</span> <span class="hl str">N'EN'</span><span class="hl opt">,</span>		<span class="hl slc">-- Not used</span>
+    &#64;CtxWithContextSecurity <span class="hl kwa">BIT</span> <span class="hl opt">=</span> <span class="hl str">N'True'</span>	<span class="hl slc">-- Not used</span>
+<span class="hl opt">)</span>
+<span class="hl kwa">AS</span>
+<span class="hl kwa">BEGIN</span>
+
+    <span class="hl kwa">SET NOCOUNT ON</span>
+
+    <span class="hl kwa">SELECT</span>
+        <span class="hl opt">*,</span>
+        <span class="hl opt">(</span><span class="hl kwa">SELECT COUNT</span><span class="hl opt">(</span><span class="hl num">0</span><span class="hl opt">)</span> <span class="hl kwa">FROM</span> Category C3 <span class="hl kwa">WITH</span><span class="hl opt">(</span><span class="hl kwa">NOLOCK</span><span class="hl opt">)</span> <span class="hl kwa">WHERE</span> C3.Category_IdCategoryFather <span class="hl opt">=</span> C1.Category_Id<span class="hl opt">)</span> <span class="hl kwa">AS</span> ChildrenCount<span class="hl opt">,</span>
+        <span class="hl opt">(</span><span class="hl kwa">SELECT COUNT</span><span class="hl opt">(</span><span class="hl num">0</span><span class="hl opt">)</span> <span class="hl kwa">FROM</span> Book B <span class="hl kwa">WITH</span><span class="hl opt">(</span><span class="hl kwa">NOLOCK</span><span class="hl opt">)</span> <span class="hl kwa">WHERE</span> B.Book_IdCategory <span class="hl opt">=</span> Category_Id<span class="hl opt">)</span> <span class="hl kwa">AS</span> BookCount<span class="hl opt">,</span>
+        <span class="hl opt">(</span><span class="hl kwa">SELECT COUNT</span><span class="hl opt">(</span><span class="hl num">0</span><span class="hl opt">)</span> <span class="hl kwa">FROM</span> Phone P <span class="hl kwa">WITH</span><span class="hl opt">(</span><span class="hl kwa">NOLOCK</span><span class="hl opt">)</span> <span class="hl kwa">WHERE</span> P.Phone_IdCategory <span class="hl opt">=</span> Category_Id<span class="hl opt">)</span> <span class="hl kwa">AS</span> PhoneCount
+    <span class="hl kwa">FROM</span>
+        Category C1 <span class="hl kwa">WITH</span><span class="hl opt">(</span><span class="hl kwa">NOLOCK</span><span class="hl opt">)</span>
+    <span class="hl kwa">WHERE</span>
+        C1.Category_Id <span class="hl opt">= (</span><span class="hl kwa">SELECT</span> TOP <span class="hl num">1</span> C2.Category_IdCategoryFather <span class="hl kwa">FROM</span> Category C2 <span class="hl kwa">WITH</span><span class="hl opt">(</span><span class="hl kwa">NOLOCK</span><span class="hl opt">)</span> <span class="hl kwa">WHERE</span> C2.Category_Id <span class="hl opt">=</span> &#64;Category_Id<span class="hl opt">)</span>
+
+<span class="hl kwa">END</span></pre>
+		<pre class="hl"><span class="hl kwa">EXEC</span> <span class="hl opt">[</span>dbo<span class="hl opt">]</span>.<span class="hl opt">[</span>Category_Custom_GetFather<span class="hl opt">]</span>
+      &#64;Category_Id <span class="hl opt">=</span> <span class="hl num">11</span> <span class="hl slc">-- 'Galaxy S' category</span></pre>
+		<img src="../ScreenShots/HierarchicalTable-08.png" title="Illustration" alt="Illustration" />
+		<p class="text-bold">Category_Custom_GetFatherAndAncestors</p>
+		<p>Get the father &amp; all the ancestors of the specified Category.</p>
+		<pre class="hl"><span class="hl kwa">CREATE PROCEDURE</span> Category_Custom_GetFatherAndAncestors
+<span class="hl opt">(</span>
+    &#64;Category_Id <span class="hl kwb">BIGINT</span><span class="hl opt">,</span>
+    &#64;DeepLimit <span class="hl kwb">INT</span> <span class="hl opt">=</span> <span class="hl kwa">NULL</span><span class="hl opt">,</span>
+    
+    &#64;CtxUser <span class="hl kwb">BIGINT</span><span class="hl opt"> =</span> <span class="hl kwa">NULL</span><span class="hl opt">,</span>			<span class="hl slc">-- Not used</span>
+    &#64;CtxCulture <span class="hl kwb">VARCHAR</span><span class="hl opt">(</span><span class="hl num">2</span><span class="hl opt">) =</span> <span class="hl str">N'EN'</span><span class="hl opt">,</span>		<span class="hl slc">-- Not used</span>
+    &#64;CtxWithContextSecurity <span class="hl kwa">BIT</span> <span class="hl opt">=</span> <span class="hl str">N'True'</span>	<span class="hl slc">-- Not used</span>
+<span class="hl opt">)</span>
+<span class="hl kwa">AS</span>
+<span class="hl kwa">BEGIN</span>
+
+    <span class="hl kwa">SET NOCOUNT ON</span>
+
+    <span class="hl opt">;</span>
+    <span class="hl kwa">WITH</span> Hierarchy
+    <span class="hl opt">(</span>
+        Category_Id<span class="hl opt">,</span>
+        Category_IdCategoryFather<span class="hl opt">,</span>
+        Category_Name<span class="hl opt">,</span>
+        Category_Rank<span class="hl opt">,</span>
+        Deep
+    <span class="hl opt">)</span>
+    <span class="hl kwa">AS</span>
+    <span class="hl opt">(</span>
+        <span class="hl kwa">SELECT</span>
+            Category.<span class="hl opt">*,</span>
+            <span class="hl num">0</span>
+        <span class="hl kwa">FROM</span>
+            Category <span class="hl kwa">WITH</span><span class="hl opt">(</span><span class="hl kwa">NOLOCK</span><span class="hl opt">)</span>
+        <span class="hl kwa">WHERE</span>
+            Category.Category_Id <span class="hl opt">= (</span><span class="hl kwa">SELECT</span> TOP <span class="hl num">1</span> C1.Category_IdCategoryFather <span class="hl kwa">FROM</span> Category C1 <span class="hl kwa">WITH</span><span class="hl opt">(</span><span class="hl kwa">NOLOCK</span><span class="hl opt">)</span> <span class="hl kwa">WHERE</span> C1.Category_Id <span class="hl opt">=</span> &#64;Category_Id<span class="hl opt">)</span>
+     
+        <span class="hl kwa">UNION ALL</span>
+     
+        <span class="hl kwa">SELECT</span>
+            Category.<span class="hl opt">*,</span>
+            Hierarchy.Deep <span class="hl opt">+</span> <span class="hl num">1</span>
+        <span class="hl kwa">FROM</span>
+            Category <span class="hl kwa">WITH</span><span class="hl opt">(</span><span class="hl kwa">NOLOCK</span><span class="hl opt">)</span>
+            <span class="hl kwa">INNER JOIN Hierarchy ON Hierarchy</span>.Category_IdCategoryFather <span class="hl opt">=</span> Category.Category_Id
+        <span class="hl kwa">WHERE</span>
+            Hierarchy.Deep <span class="hl opt">&lt;</span> <span class="hl kwa">ISNULL</span><span class="hl opt">(</span>&#64;DeepLimit<span class="hl opt">,</span> <span class="hl num">99</span><span class="hl opt">)</span>
+    <span class="hl opt">)</span>
+    <span class="hl kwa">SELECT DISTINCT</span>
+        Hierarchy.<span class="hl opt">*,</span>
+        <span class="hl opt">(</span><span class="hl kwa">SELECT COUNT</span><span class="hl opt">(</span><span class="hl num">0</span><span class="hl opt">)</span> <span class="hl kwa">FROM</span> Category C <span class="hl kwa">WITH</span><span class="hl opt">(</span><span class="hl kwa">NOLOCK</span><span class="hl opt">)</span> <span class="hl kwa">WHERE</span> C.Category_IdCategoryFather <span class="hl opt">=</span> Hierarchy.Category_Id<span class="hl opt">)</span> <span class="hl kwa">AS</span> ChildrenCount<span class="hl opt">,</span>
+        <span class="hl opt">(</span><span class="hl kwa">SELECT COUNT</span><span class="hl opt">(</span><span class="hl num">0</span><span class="hl opt">)</span> <span class="hl kwa">FROM</span> Book B <span class="hl kwa">WITH</span><span class="hl opt">(</span><span class="hl kwa">NOLOCK</span><span class="hl opt">)</span> <span class="hl kwa">WHERE</span> B.Book_IdCategory <span class="hl opt">=</span> Hierarchy.Category_Id<span class="hl opt">)</span> <span class="hl kwa">AS</span> BookCount<span class="hl opt">,</span>
+        <span class="hl opt">(</span><span class="hl kwa">SELECT COUNT</span><span class="hl opt">(</span><span class="hl num">0</span><span class="hl opt">)</span> <span class="hl kwa">FROM</span> Phone P <span class="hl kwa">WITH</span><span class="hl opt">(</span><span class="hl kwa">NOLOCK</span><span class="hl opt">)</span> <span class="hl kwa">WHERE</span> P.Phone_IdCategory <span class="hl opt">=</span> Category_Id<span class="hl opt">)</span> <span class="hl kwa">AS</span> PhoneCount
+    <span class="hl kwa">FROM</span>
+        Hierarchy
+     
+    <span class="hl kwa">ORDER BY</span>
+           Hierarchy.Deep
+
+<span class="hl kwa">END</span></pre>
+		<pre class="hl"><span class="hl kwa">EXEC</span> <span class="hl opt">[</span>dbo<span class="hl opt">]</span>.<span class="hl opt">[</span>Category_Custom_GetFatherAndAncestors<span class="hl opt">]</span>
+      &#64;Category_Id <span class="hl opt">=</span> <span class="hl num">11</span><span class="hl opt">,</span> <span class="hl slc">-- 'Galaxy S' category</span>
+      &#64;DeepLimit <span class="hl opt">=</span> <span class="hl kwa">NULL</span></pre>
+		<img src="../ScreenShots/HierarchicalTable-09.png" title="Illustration" alt="Illustration" />
+		<p class="text-bold">Category_Custom_GetHierarchy</p>
+		<p>Get the hierarchy of the specified Category.</p>
+		<pre class="hl"><span class="hl kwa">CREATE PROCEDURE</span> Category_Custom_GetHierarchy
+<span class="hl opt">(</span>
+    &#64;Category_Id <span class="hl kwb">BIGINT</span> <span class="hl opt">=</span> <span class="hl kwa">NULL</span><span class="hl opt">,</span>
+    &#64;DeepLimit <span class="hl kwb">INT</span> <span class="hl opt">=</span> <span class="hl kwa">NULL</span><span class="hl opt">,</span>
+    
+    &#64;CtxUser <span class="hl kwb">BIGINT</span><span class="hl opt"> =</span> <span class="hl kwa">NULL</span><span class="hl opt">,</span>			<span class="hl slc">-- Not used</span>
+    &#64;CtxCulture <span class="hl kwb">VARCHAR</span><span class="hl opt">(</span><span class="hl num">2</span><span class="hl opt">) =</span> <span class="hl str">N'EN'</span><span class="hl opt">,</span>		<span class="hl slc">-- Not used</span>
+    &#64;CtxWithContextSecurity <span class="hl kwa">BIT</span> <span class="hl opt">=</span> <span class="hl str">N'True'</span>	<span class="hl slc">-- Not used</span>
+<span class="hl opt">)</span>
+<span class="hl kwa">AS</span>
+<span class="hl kwa">BEGIN</span>
+
+    <span class="hl kwa">SET NOCOUNT ON</span>
+
+    <span class="hl opt">;</span>
+    <span class="hl kwa">WITH</span> Hierarchy
+    <span class="hl opt">(</span>
+        Category_Id<span class="hl opt">,</span>
+        Category_IdCategoryFather<span class="hl opt">,</span>
+        Category_Name<span class="hl opt">,</span>
+        Category_Rank<span class="hl opt">,</span>
+        Deep
+    <span class="hl opt">)</span>
+    <span class="hl kwa">AS</span>
+    <span class="hl opt">(</span>
+        <span class="hl kwa">SELECT</span>
+            Category.<span class="hl opt">*,</span>
+            <span class="hl num">0</span>
+        <span class="hl kwa">FROM</span>
+            Category <span class="hl kwa">WITH</span><span class="hl opt">(</span><span class="hl kwa">NOLOCK</span><span class="hl opt">)</span>
+        <span class="hl kwa">WHERE</span>
+            &#64;Category_Id <span class="hl kwa">IS NULL AND</span> Category.Category_IdCategoryFather <span class="hl kwa">IS NULL</span>
+         
+        <span class="hl kwa">UNION</span> <span class="hl slc">-- To avoid OR operator in WHERE (bad for performances)</span>
+        
+        <span class="hl kwa">SELECT</span>
+            Category.<span class="hl opt">*,</span>
+            <span class="hl num">0</span>
+        <span class="hl kwa">FROM</span>
+            Category <span class="hl kwa">WITH</span><span class="hl opt">(</span><span class="hl kwa">NOLOCK</span><span class="hl opt">)</span>
+        <span class="hl kwa">WHERE</span>
+            &#64;Category_Id <span class="hl kwa">IS NOT NULL AND</span> Category.Category_IdCategoryFather <span class="hl opt">=</span> &#64;Category_Id
+     
+        <span class="hl kwa">UNION ALL</span>
+     
+        <span class="hl kwa">SELECT</span>
+            Category.<span class="hl opt">*,</span>
+            Hierarchy.Deep <span class="hl opt">+</span> <span class="hl num">1</span>
+        <span class="hl kwa">FROM</span>
+            Category <span class="hl kwa">WITH</span><span class="hl opt">(</span><span class="hl kwa">NOLOCK</span><span class="hl opt">)</span>
+            <span class="hl kwa">INNER JOIN Hierarchy ON Hierarchy</span>.Category_Id <span class="hl opt">=</span> Category.Category_IdCategoryFather
+        <span class="hl kwa">WHERE</span>
+            Hierarchy.Deep <span class="hl opt">&lt;</span> <span class="hl kwa">ISNULL</span><span class="hl opt">(</span>&#64;DeepLimit<span class="hl opt">,</span> <span class="hl num">99</span><span class="hl opt">)</span>
+    <span class="hl opt">)</span>
+    <span class="hl kwa">SELECT DISTINCT</span>
+        Hierarchy.<span class="hl opt">*,</span>
+        <span class="hl opt">(</span><span class="hl kwa">SELECT COUNT</span><span class="hl opt">(</span><span class="hl num">0</span><span class="hl opt">)</span> <span class="hl kwa">FROM</span> Category C <span class="hl kwa">WITH</span><span class="hl opt">(</span><span class="hl kwa">NOLOCK</span><span class="hl opt">)</span> <span class="hl kwa">WHERE</span> C.Category_IdCategoryFather <span class="hl opt">=</span> Hierarchy.Category_Id<span class="hl opt">)</span> <span class="hl kwa">AS</span> ChildrenCount<span class="hl opt">,</span>
+        <span class="hl opt">(</span><span class="hl kwa">SELECT COUNT</span><span class="hl opt">(</span><span class="hl num">0</span><span class="hl opt">)</span> <span class="hl kwa">FROM</span> Book B <span class="hl kwa">WITH</span><span class="hl opt">(</span><span class="hl kwa">NOLOCK</span><span class="hl opt">)</span> <span class="hl kwa">WHERE</span> B.Book_IdCategory <span class="hl opt">=</span> Hierarchy.Category_Id<span class="hl opt">)</span> <span class="hl kwa">AS</span> BookCount<span class="hl opt">,</span>
+        <span class="hl opt">(</span><span class="hl kwa">SELECT COUNT</span><span class="hl opt">(</span><span class="hl num">0</span><span class="hl opt">)</span> <span class="hl kwa">FROM</span> Phone P <span class="hl kwa">WITH</span><span class="hl opt">(</span><span class="hl kwa">NOLOCK</span><span class="hl opt">)</span> <span class="hl kwa">WHERE</span> P.Phone_IdCategory <span class="hl opt">=</span> Category_Id<span class="hl opt">)</span> <span class="hl kwa">AS</span> PhoneCount
+    <span class="hl kwa">FROM</span>
+        Hierarchy
+    <span class="hl kwa">ORDER BY</span>
+        Hierarchy.Deep
+
+<span class="hl kwa">END</span></pre>
+		<pre class="hl"><span class="hl kwa">EXEC</span> <span class="hl opt">[</span>dbo<span class="hl opt">]</span>.<span class="hl opt">[</span>Category_Custom_GetHierarchy<span class="hl opt">]</span>
+      &#64;Category_Id <span class="hl opt">=</span> <span class="hl num">2</span><span class="hl opt">,</span> <span class="hl slc">-- 'Phones' category</span>
+      &#64;DeepLimit <span class="hl opt">=</span> <span class="hl kwa">NULL</span></pre>
+		<img src="../ScreenShots/HierarchicalTable-10.png" title="Illustration" alt="Illustration" />
+		<p class="text-bold">Category_Custom_SearchHierarchy</p>
+		<p>Retrieve all the Categories that match the search criteria (and all the hierarchy to be able to recreate and expand it on code-side).</p>
+		<pre class="hl"><span class="hl kwa">CREATE PROCEDURE</span> Category_Custom_SearchHierarchy
+<span class="hl opt">(</span>
+    &#64;SearchString <span class="hl kwb">VARCHAR</span><span class="hl opt">(</span><span class="hl num">128</span><span class="hl opt">) =</span> <span class="hl kwa">NULL</span><span class="hl opt">,</span>
+    &#64;SelectedIdCategory <span class="hl kwb">BIGINT</span> <span class="hl opt">=</span> <span class="hl kwa">NULL</span><span class="hl opt">,</span>
+    
+    &#64;CtxUser <span class="hl kwb">BIGINT</span><span class="hl opt"> =</span> <span class="hl kwa">NULL</span><span class="hl opt">,</span>			<span class="hl slc">-- Not used</span>
+    &#64;CtxCulture <span class="hl kwb">VARCHAR</span><span class="hl opt">(</span><span class="hl num">2</span><span class="hl opt">) =</span> <span class="hl str">N'EN'</span><span class="hl opt">,</span>		<span class="hl slc">-- Not used</span>
+    &#64;CtxWithContextSecurity <span class="hl kwa">BIT</span> <span class="hl opt">=</span> <span class="hl str">N'True'</span>	<span class="hl slc">-- Not used</span>
+<span class="hl opt">)</span>
+<span class="hl kwa">AS</span>
+<span class="hl kwa">BEGIN</span>
+
+    <span class="hl kwa">SET NOCOUNT ON</span>
+    
+    <span class="hl slc">-- Table that will contains the results</span>
+    
+    <span class="hl kwa">DECLARE</span> &#64;T_DATA <span class="hl kwa">TABLE</span>
+    <span class="hl opt">(</span>
+        _IsFound <span class="hl kwa">BIT</span><span class="hl opt">,</span>
+        _IsSelected <span class="hl kwa">BIT</span><span class="hl opt">,</span>
+        Category_Id <span class="hl kwb">BIGINT</span><span class="hl opt">,</span>
+        Category_IdCategoryFather <span class="hl kwb">BIGINT</span><span class="hl opt">,</span>
+        Category_Name <span class="hl kwb">VARCHAR</span><span class="hl opt">(</span><span class="hl num">64</span><span class="hl opt">),</span>
+        Category_Rank <span class="hl kwb">INT</span>
+    <span class="hl opt">)</span>
+    
+    <span class="hl slc">-- Using CTE to</span>
+    <span class="hl slc">--  1. Find all the nodes (*found-nodes*) that match the &#64;SearchString value</span>
+    <span class="hl slc">--  2. Get the parents nodes (*parents-nodes*) recursively ((*found-nodes*) -&gt; roots)</span>
+
+    <span class="hl opt">;</span>
+    <span class="hl kwa">WITH</span> TREE
+    <span class="hl opt">(</span>
+        _IsFound<span class="hl opt">,</span>
+        _IsSelected<span class="hl opt">,</span>
+        Category_Id<span class="hl opt">,</span>
+        Category_IdCategoryFather<span class="hl opt">,</span>
+        Category_Name<span class="hl opt">,</span>
+        Category_Rank
+    <span class="hl opt">)</span>
+    <span class="hl kwa">AS</span>
+    <span class="hl opt">(</span>
+        <span class="hl slc">-- -&gt; 1. Find all the nodes (*found-nodes*) that match the &#64;SearchString value...</span>
+        <span class="hl kwa">SELECT</span>
+            <span class="hl num">1</span><span class="hl opt">,</span>
+            <span class="hl opt">(</span><span class="hl kwa">CASE</span> Category.Category_Id <span class="hl kwa">WHEN</span> &#64;SelectedIdCategory <span class="hl kwa">THEN</span> <span class="hl num">1</span> <span class="hl kwa">ELSE</span> <span class="hl num">0</span> <span class="hl kwa">END</span><span class="hl opt">)</span> <span class="hl kwa">AS</span> _IsSelected<span class="hl opt">,</span>
+            Category_Id<span class="hl opt">,</span>
+            Category_IdCategoryFather<span class="hl opt">,</span>
+            Category_Name<span class="hl opt">,</span>
+            Category_Rank
+        <span class="hl kwa">FROM</span>
+            Category <span class="hl kwa">WITH</span><span class="hl opt">(</span><span class="hl kwa">NOLOCK</span><span class="hl opt">)</span>
+        <span class="hl kwa">WHERE</span>
+            &#64;SearchString <span class="hl kwa">IS NOT NULL</span> <span class="hl slc">-- IF 1</span>
+        <span class="hl kwa">AND</span> <span class="hl kwd">LEN</span><span class="hl opt">(</span>&#64;SearchString<span class="hl opt">) !=</span> <span class="hl num">0</span> <span class="hl slc">-- IF 2</span>
+        <span class="hl kwa">AND</span> Category_Name <span class="hl kwa">COLLATE</span> French_CI_AI <span class="hl kwa">LIKE</span> <span class="hl str">'%'</span> <span class="hl opt">+</span> &#64;SearchString <span class="hl opt">+</span> <span class="hl str">'%'</span> <span class="hl kwa">COLLATE</span> French_CI_AI <span class="hl slc">-- Prefere using Fast Search Text here</span>
+
+        <span class="hl kwa">UNION ALL</span>
+
+        <span class="hl slc">-- -&gt; 2. Get the parents nodes (*parents-nodes*) recursively ((*found-nodes*) -&gt; roots)...</span>
+        <span class="hl kwa">SELECT</span>
+            <span class="hl num">0</span><span class="hl opt">,</span>
+            <span class="hl opt">(</span><span class="hl kwa">CASE</span> Category.Category_Id <span class="hl kwa">WHEN</span> &#64;SelectedIdCategory <span class="hl kwa">THEN</span> <span class="hl num">1</span> <span class="hl kwa">ELSE</span> <span class="hl num">0</span> <span class="hl kwa">END</span><span class="hl opt">)</span> <span class="hl kwa">AS</span> _IsSelected<span class="hl opt">,</span>
+            Category.Category_Id<span class="hl opt">,</span>
+            Category.Category_IdCategoryFather<span class="hl opt">,</span>
+            Category.Category_Name<span class="hl opt">,</span>
+            Category.Category_Rank
+        <span class="hl kwa">FROM</span>
+            Category <span class="hl kwa">WITH</span><span class="hl opt">(</span><span class="hl kwa">NOLOCK</span><span class="hl opt">)</span>
+            <span class="hl kwa">INNER JOIN</span> TREE <span class="hl kwa">ON</span> TREE.Category_IdCategoryFather <span class="hl opt">=</span> Category.Category_Id
+    <span class="hl opt">)</span>
+    <span class="hl kwa">INSERT INTO</span> &#64;T_DATA
+    <span class="hl kwa">SELECT DISTINCT</span> <span class="hl opt">*</span> <span class="hl kwa">FROM</span> TREE<span class="hl opt">;</span>
+            
+    <span class="hl slc">-- Get the children of all (*found-nodes*) where _IsFound == 0 (used to display the expanded hierarchy on client-side)</span>
+
+    <span class="hl kwa">INSERT INTO</span> &#64;T_DATA
+    <span class="hl kwa">SELECT</span>
+        <span class="hl num">0</span><span class="hl opt">,</span>
+        <span class="hl opt">(</span><span class="hl kwa">CASE</span> C.Category_Id <span class="hl kwa">WHEN</span> &#64;SelectedIdCategory <span class="hl kwa">THEN</span> <span class="hl num">1</span> <span class="hl kwa">ELSE</span> <span class="hl num">0</span> <span class="hl kwa">END</span><span class="hl opt">)</span> <span class="hl kwa">AS</span> _IsSelected<span class="hl opt">,</span>
+        C.Category_Id<span class="hl opt">,</span>
+        C.Category_IdCategoryFather<span class="hl opt">,</span>
+        C.Category_Name<span class="hl opt">,</span>
+        C.Category_Rank
+    <span class="hl kwa">FROM</span>
+        Category C <span class="hl kwa">WITH</span><span class="hl opt">(</span><span class="hl kwa">NOLOCK</span><span class="hl opt">)</span>
+        <span class="hl kwa">INNER JOIN</span> &#64;T_DATA D <span class="hl kwa">ON</span> C.Category_IdCategoryFather <span class="hl opt">=</span> D.Category_Id
+    <span class="hl kwa">WHERE</span>
+        D._IsFound <span class="hl opt">=</span> <span class="hl num">0</span>
+    <span class="hl kwa">AND</span> C.Category_Id <span class="hl kwa">NOT IN</span> <span class="hl opt">(</span><span class="hl kwa">SELECT</span> Category_Id <span class="hl kwa">FROM</span> &#64;T_DATA<span class="hl opt">)</span>
+    
+    <span class="hl slc">-- If specified add the selected node and its hierarchy...</span>
+
+    <span class="hl opt">;</span>
+    <span class="hl kwa">WITH</span> TREE
+    <span class="hl opt">(</span>
+        _IsFound<span class="hl opt">,</span>
+        _IsSelected<span class="hl opt">,</span>
+        Category_Id<span class="hl opt">,</span>
+        Category_IdCategoryFather<span class="hl opt">,</span>
+        Category_Name<span class="hl opt">,</span>
+        Category_Rank
+    <span class="hl opt">)</span>
+    <span class="hl kwa">AS</span>
+    <span class="hl opt">(</span>
+        <span class="hl kwa">SELECT</span>
+            <span class="hl num">0</span><span class="hl opt">,</span>
+            <span class="hl num">1</span><span class="hl opt">,</span>
+            Category_Id<span class="hl opt">,</span>
+            Category_IdCategoryFather<span class="hl opt">,</span>
+            Category_Name<span class="hl opt">,</span>
+            Category_Rank
+        <span class="hl kwa">FROM</span>
+            Category <span class="hl kwa">WITH</span><span class="hl opt">(</span><span class="hl kwa">NOLOCK</span><span class="hl opt">)</span>
+        <span class="hl kwa">WHERE</span>
+            &#64;SelectedIdCategory <span class="hl kwa">IS NOT NULL</span>    <span class="hl slc">-- IF 1</span>
+        <span class="hl kwa">AND NOT EXISTS</span><span class="hl opt">(</span><span class="hl kwa">SELECT</span> <span class="hl num">1</span> <span class="hl kwa">FROM</span> &#64;T_DATA D <span class="hl kwa">WHERE</span> D.Category_Id <span class="hl opt">=</span> &#64;SelectedIdCategory<span class="hl opt">)</span> <span class="hl slc">-- IF 2</span>
+        <span class="hl kwa">AND</span> Category.Category_Id <span class="hl opt">=</span> &#64;SelectedIdCategory
+
+        <span class="hl kwa">UNION ALL</span>
+
+        <span class="hl kwa">SELECT</span>
+            <span class="hl num">0</span><span class="hl opt">,</span>
+            <span class="hl num">0</span><span class="hl opt">,</span>
+            Category.Category_Id<span class="hl opt">,</span>
+            Category.Category_IdCategoryFather<span class="hl opt">,</span>
+            Category.Category_Name<span class="hl opt">,</span>
+            Category.Category_Rank
+        <span class="hl kwa">FROM</span>
+            Category <span class="hl kwa">WITH</span><span class="hl opt">(</span><span class="hl kwa">NOLOCK</span><span class="hl opt">)</span>
+            <span class="hl kwa">INNER JOIN</span> TREE <span class="hl kwa">ON</span> TREE.Category_IdCategoryFather <span class="hl opt">=</span> Category.Category_Id
+    <span class="hl opt">)</span>
+    <span class="hl kwa">INSERT INTO</span> &#64;T_DATA
+    <span class="hl kwa">SELECT DISTINCT</span> <span class="hl opt">*</span> <span class="hl kwa">FROM</span> TREE <span class="hl kwa">WHERE</span> TREE.Category_Id <span class="hl kwa">NOT IN</span> <span class="hl opt">(</span><span class="hl kwa">SELECT</span> D.Category_Id <span class="hl kwa">FROM</span> &#64;T_DATA D<span class="hl opt">)</span>
+
+    <span class="hl slc">-- Add all the root nodes that are not already in the table result</span>
+    
+    <span class="hl kwa">INSERT INTO</span> &#64;T_DATA
+    <span class="hl kwa">SELECT</span>
+        <span class="hl num">0</span> <span class="hl kwa">AS</span> _IsFound<span class="hl opt">,</span>
+        <span class="hl opt">(</span><span class="hl kwa">CASE</span> Category_Id <span class="hl kwa">WHEN</span> &#64;SelectedIdCategory <span class="hl kwa">THEN</span> <span class="hl num">1</span> <span class="hl kwa">ELSE</span> <span class="hl num">0</span> <span class="hl kwa">END</span><span class="hl opt">)</span> <span class="hl kwa">AS</span> _IsSelected<span class="hl opt">,</span>
+        Category_Id<span class="hl opt">,</span>
+        Category_IdCategoryFather<span class="hl opt">,</span>
+        Category_Name<span class="hl opt">,</span>
+        Category_Rank
+    <span class="hl kwa">FROM</span>
+        Category <span class="hl kwa">WITH</span><span class="hl opt">(</span><span class="hl kwa">NOLOCK</span><span class="hl opt">)</span>
+    <span class="hl kwa">WHERE</span>
+        Category.Category_IdCategoryFather <span class="hl kwa">IS NULL</span>
+    <span class="hl kwa">AND</span> Category.Category_Id <span class="hl kwa">NOT IN</span> <span class="hl opt">(</span><span class="hl kwa">SELECT</span> D.Category_Id <span class="hl kwa">FROM</span> &#64;T_DATA D<span class="hl opt">)</span>
+    
+    <span class="hl slc">-- Final result</span>
+    
+    <span class="hl kwa">SELECT DISTINCT</span>
+        _IsFound<span class="hl opt">,</span>
+        _IsSelected<span class="hl opt">,</span>
+        Category_Id<span class="hl opt">,</span>
+        Category_IdCategoryFather<span class="hl opt">,</span>
+        Category_Name<span class="hl opt">,</span>
+        Category_Rank<span class="hl opt">,</span>
+        ChildrenCount<span class="hl opt">,</span>
+        BookCount<span class="hl opt">,</span>
+        PhoneCount
+    <span class="hl kwa">FROM</span>
+    <span class="hl opt">(</span>
+        <span class="hl kwa">SELECT</span>
+            <span class="hl opt">*,</span>
+            <span class="hl kwa">ROW_NUMBER</span><span class="hl opt">()</span> <span class="hl kwa">OVER</span><span class="hl opt">(</span><span class="hl kwa">PARTITION BY</span> Category_Id <span class="hl kwa">ORDER BY</span> Category_Id<span class="hl opt">,</span> _IsFound <span class="hl kwa">DESC</span><span class="hl opt">)</span> _InnerRank
+        <span class="hl kwa">FROM</span>
+        <span class="hl opt">(</span>
+            <span class="hl kwa">SELECT</span>
+                <span class="hl opt">*,</span>
+                <span class="hl opt">(</span><span class="hl kwa">SELECT COUNT</span><span class="hl opt">(</span><span class="hl num">0</span><span class="hl opt">)</span> <span class="hl kwa">FROM</span> Category C <span class="hl kwa">WITH</span><span class="hl opt">(</span><span class="hl kwa">NOLOCK</span><span class="hl opt">)</span> <span class="hl kwa">WHERE</span> C.Category_IdCategoryFather <span class="hl opt">=</span> D.Category_Id<span class="hl opt">)</span> <span class="hl kwa">AS</span> ChildrenCount<span class="hl opt">,</span>
+                <span class="hl opt">(</span><span class="hl kwa">SELECT COUNT</span><span class="hl opt">(</span><span class="hl num">0</span><span class="hl opt">)</span> <span class="hl kwa">FROM</span> Book B <span class="hl kwa">WITH</span><span class="hl opt">(</span><span class="hl kwa">NOLOCK</span><span class="hl opt">)</span> <span class="hl kwa">WHERE</span> B.Book_IdCategory <span class="hl opt">=</span> D.Category_Id<span class="hl opt">)</span> <span class="hl kwa">AS</span> BookCount<span class="hl opt">,</span>
+                <span class="hl opt">(</span><span class="hl kwa">SELECT COUNT</span><span class="hl opt">(</span><span class="hl num">0</span><span class="hl opt">)</span> <span class="hl kwa">FROM</span> Phone P <span class="hl kwa">WITH</span><span class="hl opt">(</span><span class="hl kwa">NOLOCK</span><span class="hl opt">)</span> <span class="hl kwa">WHERE</span> P.Phone_IdCategory <span class="hl opt">=</span> D.Category_Id<span class="hl opt">)</span> <span class="hl kwa">AS</span> PhoneCount
+            <span class="hl kwa">FROM</span>
+                &#64;T_DATA D
+        <span class="hl opt">)</span> T1
+    <span class="hl opt">)</span> T
+    <span class="hl kwa">WHERE</span>
+        _InnerRank <span class="hl opt">=</span> <span class="hl num">1</span>
+    <span class="hl kwa">ORDER BY</span>
+        Category_Rank
+            
+<span class="hl kwa">END</span></pre>
+		<pre class="hl"><span class="hl slc">-- Root categories are always retrieved regardless of the @SearchString value</span>
+<span class="hl kwa">EXEC</span> <span class="hl opt">[</span>dbo<span class="hl opt">]</span>.<span class="hl opt">[</span>Category_Custom_SearchHierarchy<span class="hl opt">]</span> &#64;SearchString <span class="hl opt">=</span> <span class="hl kwa">NULL</span><span class="hl opt">,</span> &#64;SelectedIdCategory <span class="hl opt">=</span> <span class="hl kwa">NULL</span>
+
+<span class="hl slc">-- Retrieves all categories that contain 'Galaxy' substring</span>
+<span class="hl kwa">EXEC</span> <span class="hl opt">[</span>dbo<span class="hl opt">]</span>.<span class="hl opt">[</span>Category_Custom_SearchHierarchy<span class="hl opt">]</span> &#64;SearchString <span class="hl opt">=</span> <span class="hl str">'Galaxy'</span><span class="hl opt">,</span> &#64;SelectedIdCategory <span class="hl opt">=</span> <span class="hl kwa">NULL</span>
+
+<span class="hl slc">-- Retrieves all categories that contain 'Galaxy' substring and the specified selected category</span>
+<span class="hl kwa">EXEC</span> <span class="hl opt">[</span>dbo<span class="hl opt">]</span>.<span class="hl opt">[</span>Category_Custom_SearchHierarchy<span class="hl opt">]</span> &#64;SearchString <span class="hl opt">=</span> <span class="hl str">'Galaxy'</span><span class="hl opt">,</span> &#64;SelectedIdCategory <span class="hl opt">=</span> <span class="hl num">9</span></pre>
+		<img src="../ScreenShots/HierarchicalTable-11.png" title="Illustration" alt="Illustration" />
+	</section>
+	<section>
+		<h2>3. ITreeNode and TreeNodeHelper Classes</h2>
+		<p>The TreeNodeHelper class is used to create a hierarchical collection from a flat one.</p>
+		<p>Here an example with the <span class="text-bold">Category_Custom_SearchHierarchy</span> stored procedure.</p>
+		<h3>3. 1. Model - CategoryNode.cs</h3>
+		<p>Implement the <span class="text-bold">CategoryNode</span> class (Models\CategoryNode.cs) and add the 3 custom properties <span class="text-bold">ChildrenCount</span>, <span class="text-bold">BookCount</span> and <span class="text-bold">PhoneCount</span> (values returned by the stored procedure).</p>
+		<pre class="hl">﻿<span class="hl kwa">namespace</span> Com<span class="hl opt">.</span>Example<span class="hl opt">.</span>Labs<span class="hl opt">.</span>Models
+<span class="hl opt">{</span>
+    <span class="hl kwa">using</span> System<span class="hl opt">;</span>
+    
+    <span class="hl kwa">public class</span> <span class="text-red text-bold">CategoryNode</span> <span class="hl opt">:</span> <span class="text-red text-bold">TreeNodeBase&lt;ICategory&gt;</span>
+    <span class="hl opt">{</span>
+        <span class="hl ppc">#region [ Constructor ]</span>
+    
+        <span class="hl kwa">public</span> <span class="hl kwd">CategoryNode</span><span class="hl opt">(</span>ICategory item<span class="hl opt">)</span>
+            <span class="hl opt">:</span> <span class="hl kwa">base</span><span class="hl opt">(</span>item<span class="hl opt">)</span>
+        <span class="hl opt">{</span>
+        <span class="hl opt">}</span>
+    
+        <span class="hl ppc">#endregion</span>
+    
+        <span class="hl ppc">#region [ Properties ]</span>
+    
+        <span class="hl slc">/// &lt;summary&gt;</span>
+        <span class="hl slc">/// Gets or sets the number of children attached to this category (in database).</span>
+        <span class="hl slc">/// &lt;/summary&gt;</span>
+        <span class="hl kwa">public</span> <span class="hl kwb">int</span> ChildrenCount <span class="hl opt">{</span> <span class="hl kwa">get</span><span class="hl opt">;</span> <span class="hl kwa">set</span><span class="hl opt">; }</span>
+    
+        <span class="hl slc">/// &lt;summary&gt;</span>
+        <span class="hl slc">/// Gets or sets the number of books attached to this category (in database).</span>
+        <span class="hl slc">/// &lt;/summary&gt;</span>
+        <span class="hl kwa">public</span> <span class="hl kwb">int</span> BookCount <span class="hl opt">{</span> <span class="hl kwa">get</span><span class="hl opt">;</span> <span class="hl kwa">set</span><span class="hl opt">; }</span>
+    
+        <span class="hl slc">/// &lt;summary&gt;</span>
+        <span class="hl slc">/// Gets or sets the number of phones attached to this category (in database).</span>
+        <span class="hl slc">/// &lt;/summary&gt;</span>
+        <span class="hl kwa">public</span> <span class="hl kwb">int</span> PhoneCount <span class="hl opt">{</span> <span class="hl kwa">get</span><span class="hl opt">;</span> <span class="hl kwa">set</span><span class="hl opt">; }</span>
+    
+        <span class="hl slc">/// &lt;summary&gt;</span>
+        <span class="hl slc">/// Gets or sets the value indicating whether the element comes from the search.</span>
+        <span class="hl slc">/// &lt;/summary&gt;</span>
+        <span class="hl kwa">public</span> <span class="hl kwb">bool</span> IsFound <span class="hl opt">{</span> <span class="hl kwa">get</span><span class="hl opt">;</span> <span class="hl kwa">set</span><span class="hl opt">; }</span>
+    
+        <span class="hl slc">/// &lt;summary&gt;</span>
+        <span class="hl slc">/// Gets or sets the value indicating whether the element is selected.</span>
+        <span class="hl slc">/// &lt;/summary&gt;</span>
+        <span class="hl kwa">public</span> <span class="hl kwb">bool</span> IsSelected <span class="hl opt">{</span> <span class="hl kwa">get</span><span class="hl opt">;</span> <span class="hl kwa">set</span><span class="hl opt">; }</span>
+    
+        <span class="hl ppc">#endregion</span>
+    
+        <span class="hl ppc">#region [ Methods ]</span>
+    
+        <span class="hl kwa">public override</span> <span class="hl kwb">string</span> <span class="hl kwd">ToString</span><span class="hl opt">()</span>
+        <span class="hl opt">{</span>
+            <span class="hl kwa">return</span> <span class="hl kwb">string</span><span class="hl opt">.</span><span class="hl kwd">Format</span><span class="hl opt">(</span><span class="hl str">&quot;{0} ({1})&quot;</span><span class="hl opt">,</span> <span class="hl kwa">base</span><span class="hl opt">.</span><span class="hl kwd">ToString</span><span class="hl opt">(),</span> <span class="hl kwa">this</span><span class="hl opt">.</span>Item<span class="hl opt">.</span>Name<span class="hl opt">);</span> <span class="hl slc">// for debugging</span>
+        <span class="hl opt">}</span>
+    
+        <span class="hl ppc">#endregion</span>
+    <span class="hl opt">}</span>
+<span class="hl opt">}</span></pre>
+		<h3>3. 2. Crud - CategoryCrud.custom.cs</h3>
+		<p>Implement the following method</p>
+		<pre class="hl">﻿<span class="hl kwa">public</span> TCollection<span class="hl opt">&lt;</span>CategoryNode<span class="hl opt">&gt;</span> <span class="hl kwd">SearchHierarchy</span><span class="hl opt">(</span><span class="hl kwb">string</span> searchString<span class="hl opt">,</span> <span class="hl kwb">long</span><span class="hl opt">?</span> selectedIdCategory <span class="hl opt">=</span> <span class="hl kwa">null</span><span class="hl opt">)</span>
+<span class="hl opt">{</span>
+    var flatCollection <span class="hl opt">=</span> <span class="hl kwa">new</span> TCollection<span class="hl opt">&lt;</span>CategoryNode<span class="hl opt">&gt;();</span>
+
+    DbConnection dbConnection<span class="hl opt">;</span>
+
+    var parameters <span class="hl opt">=</span> <span class="hl kwa">new</span> Dictionary<span class="hl opt">&lt;</span><span class="hl kwb">string</span><span class="hl opt">,</span> <span class="hl kwb">object</span><span class="hl opt">&gt;();</span>
+
+    parameters<span class="hl opt">.</span><span class="hl kwd">Add</span><span class="hl opt">(</span><span class="hl str">&quot;&#64;SearchString&quot;</span><span class="hl opt">,</span> searchString<span class="hl opt">);</span>
+    parameters<span class="hl opt">.</span><span class="hl kwd">Add</span><span class="hl opt">(</span><span class="hl str">&quot;&#64;SelectedIdCategory&quot;</span><span class="hl opt">,</span> selectedIdCategory<span class="hl opt">);</span>
+
+    <span class="hl kwa">using</span> <span class="hl opt">(</span>var dbReader <span class="hl opt">=</span> <span class="hl kwa">base</span><span class="hl opt">.</span><span class="hl kwd">ToDataReader</span><span class="hl opt">(</span><span class="hl str">&quot;Category_Custom_SearchHierarchy&quot;</span><span class="hl opt">,</span> parameters<span class="hl opt">,</span> out dbConnection<span class="hl opt">))</span>
+    <span class="hl opt">{</span>
+        <span class="hl kwa">while</span> <span class="hl opt">(</span>dbReader<span class="hl opt">.</span><span class="hl kwd">Read</span><span class="hl opt">())</span>
+        <span class="hl opt">{</span>
+            var category <span class="hl opt">=</span> <span class="hl kwa">new</span> <span class="hl kwd">Category</span><span class="hl opt">();</span>
+            category<span class="hl opt">.</span><span class="hl kwd">Map</span><span class="hl opt">(</span>dbReader<span class="hl opt">,</span> <span class="hl kwa">base</span><span class="hl opt">.</span>UserContext<span class="hl opt">);</span> <span class="hl slc">// Auto mapping</span>
+
+            var node <span class="hl opt">=</span> <span class="hl kwa">new</span> <span class="hl kwd">CategoryNode</span><span class="hl opt">(</span>category<span class="hl opt">);</span>
+
+            <span class="hl slc">// Custom mapping...</span>
+
+            node<span class="hl opt">.</span>IsFound <span class="hl opt">=</span> TypeHelper<span class="hl opt">.</span>To<span class="hl opt">&lt;</span><span class="hl kwb">bool</span><span class="hl opt">&gt;(</span>dbReader<span class="hl opt">,</span> <span class="hl str">&quot;_IsFound&quot;</span><span class="hl opt">);</span>
+            node<span class="hl opt">.</span>IsSelected <span class="hl opt">=</span> TypeHelper<span class="hl opt">.</span>To<span class="hl opt">&lt;</span><span class="hl kwb">bool</span><span class="hl opt">&gt;(</span>dbReader<span class="hl opt">,</span> <span class="hl str">&quot;_IsSelected&quot;</span><span class="hl opt">);</span>
+
+            <span class="hl kwa">if</span> <span class="hl opt">(</span>dbReader<span class="hl opt">.</span><span class="hl kwd">HasColumn</span><span class="hl opt">(</span><span class="hl str">&quot;ChildrenCount&quot;</span><span class="hl opt">))</span>
+                node<span class="hl opt">.</span>ChildrenCount <span class="hl opt">=</span> TypeHelper<span class="hl opt">.</span>To<span class="hl opt">&lt;</span><span class="hl kwb">int</span><span class="hl opt">&gt;(</span>dbReader<span class="hl opt">,</span> <span class="hl str">&quot;ChildrenCount&quot;</span><span class="hl opt">);</span>
+
+            <span class="hl kwa">if</span> <span class="hl opt">(</span>dbReader<span class="hl opt">.</span><span class="hl kwd">HasColumn</span><span class="hl opt">(</span><span class="hl str">&quot;BookCount&quot;</span><span class="hl opt">))</span>
+                node<span class="hl opt">.</span>BookCount <span class="hl opt">=</span> TypeHelper<span class="hl opt">.</span>To<span class="hl opt">&lt;</span><span class="hl kwb">int</span><span class="hl opt">&gt;(</span>dbReader<span class="hl opt">,</span> <span class="hl str">&quot;BookCount&quot;</span><span class="hl opt">);</span>
+
+            <span class="hl kwa">if</span> <span class="hl opt">(</span>dbReader<span class="hl opt">.</span><span class="hl kwd">HasColumn</span><span class="hl opt">(</span><span class="hl str">&quot;PhoneCount&quot;</span><span class="hl opt">))</span>
+                node<span class="hl opt">.</span>PhoneCount <span class="hl opt">=</span> TypeHelper<span class="hl opt">.</span>To<span class="hl opt">&lt;</span><span class="hl kwb">int</span><span class="hl opt">&gt;(</span>dbReader<span class="hl opt">,</span> <span class="hl str">&quot;PhoneCount&quot;</span><span class="hl opt">);</span>
+
+            flatCollection<span class="hl opt">.</span><span class="hl kwd">Add</span><span class="hl opt">(</span>node<span class="hl opt">);</span>
+        <span class="hl opt">}</span>
+    <span class="hl opt">}</span>
+
+    <span class="hl kwa">if</span> <span class="hl opt">(</span>dbConnection <span class="hl opt">!=</span> <span class="hl kwa">null</span><span class="hl opt">)</span>
+        dbConnection<span class="hl opt">.</span><span class="hl kwd">Close</span><span class="hl opt">();</span>
+
+    <span class="hl kwa">return</span> TreeNodeHelper<span class="hl opt">.</span><span class="hl kwd">Hierarchize</span><span class="hl opt">(</span>
+               flatCollection<span class="hl opt">,</span>
+               f <span class="hl opt">=&gt;</span> f<span class="hl opt">.</span>Id<span class="hl opt">,</span>		<span class="hl slc">// Id property</span>
+               f <span class="hl opt">=&gt;</span> f<span class="hl opt">.</span>IdCategoryFather<span class="hl opt">,</span>	<span class="hl slc">// Parent property</span>
+               f <span class="hl opt">=&gt;</span> f<span class="hl opt">.</span>Name<span class="hl opt">)</span>		<span class="hl slc">// OrderBy property</span>
+           <span class="hl opt">.</span>Cast<span class="hl opt">&lt;</span>CategoryNode<span class="hl opt">&gt;()</span>
+           <span class="hl opt">.</span><span class="hl kwd">ToTCollection</span><span class="hl opt">();</span>
+<span class="hl opt">}</span></pre>
+		<h3>3. 3. Business - CategoryBusiness.custom.cs</h3>
+		<p>Implement the following method</p>
+		<pre class="hl">﻿<span class="hl opt">[</span><span class="hl kwd">BusinessMethod</span><span class="hl opt">]</span>
+<span class="hl kwa">public</span> TCollection<span class="hl opt">&lt;</span>CategoryNode<span class="hl opt">&gt;</span> <span class="hl kwd">SearchHierarchy</span><span class="hl opt">(</span>IUserContext userContext<span class="hl opt">,</span> <span class="hl kwb">string</span> searchString<span class="hl opt">,</span> <span class="hl kwb">long</span><span class="hl opt">?</span> selectedIdCategory <span class="hl opt">=</span> <span class="hl kwa">null</span><span class="hl opt">)</span>
+<span class="hl opt">{</span>
+    <span class="hl kwa">using</span> <span class="hl opt">(</span>var et <span class="hl opt">=</span> <span class="hl kwa">new</span> <span class="hl kwd">ExecutionTracerService</span><span class="hl opt">())</span>
+    <span class="hl kwa">using</span> <span class="hl opt">(</span>var db <span class="hl opt">=</span> <span class="hl kwa">new</span> <span class="hl kwd">CategoryCrud</span><span class="hl opt">(</span>userContext<span class="hl opt">))</span>
+    <span class="hl opt">{</span>
+        <span class="hl kwa">return</span> db<span class="hl opt">.</span><span class="hl kwd">SearchHierarchy</span><span class="hl opt">(</span>searchString<span class="hl opt">,</span> selectedIdCategory<span class="hl opt">);</span>
+    <span class="hl opt">}</span>
+<span class="hl opt">}</span></pre>
+		<p>Output</p>
+		<img src="../ScreenShots/HierarchicalTable-12.png" title="Illustration" alt="Illustration" />
+		<p>Do not forget to execute the LayerCake Generator process to integrate the method at the Services and WCF layers.</p>
+
+
+		<h3>3. 4. LinqToTree Support</h3>
+		<pre class="hl">var hierarchy <span class="hl opt">=</span> business<span class="hl opt">.</span><span class="hl kwd">GetHierarchy</span><span class="hl opt">(</span>ClientContext<span class="hl opt">.</span>Anonymous<span class="hl opt">,</span> idCategory<span class="hl opt">:</span> <span class="hl num">2</span><span class="hl opt">);</span> <span class="hl slc">// for example, gets the hierarchy from 'Phones' node</span>
+
+var query <span class="hl opt">=</span> hierarchy<span class="hl opt">.</span>Cast<span class="hl opt">&lt;</span>ITreeNode<span class="hl opt">&lt;</span>ICategory<span class="hl opt">&gt;&gt;();</span> <span class="hl slc">// cast CategoryNode to ITreeNode&lt;ICategory&gt; -&gt; ITreeNode required to use LinqToTree</span>
+
+var data <span class="hl opt">=</span> query<span class="hl opt">.</span><span class="hl kwd">Descendants</span><span class="hl opt">().</span><span class="hl kwd">Where</span><span class="hl opt">(</span>n <span class="hl opt">=&gt;</span> n<span class="hl opt">.</span>Item<span class="hl opt">.</span>Name<span class="hl opt">.</span><span class="hl kwd">Contains</span><span class="hl opt">(</span><span class="hl str">&quot;Galaxy&quot;</span><span class="hl opt">));</span>
+
+<span class="hl slc">// Methods available:</span>
+
+<span class="hl slc">// Ancestors()			: returns a collection of ancestor elements.</span>
+<span class="hl slc">// Descendants()		: returns a collection of descendant elements.</span>
+<span class="hl slc">// Elements()			: returns a collection of child elements.</span>
+<span class="hl slc">// SelfAndAncestors()		: returns a collection containing this element and all the ancestor elements.</span>
+<span class="hl slc">// SelfAndDescendants()		: returns a collection containing this element and all the descendant elements.</span>			
+<span class="hl slc">// SelfAndElements()		: returns a collection containing this element and all the child elements.</span></pre>
+
+	</section>
+</body>
+</html>
